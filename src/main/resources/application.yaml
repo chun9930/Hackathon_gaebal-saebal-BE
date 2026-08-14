@@ -1,3 +1,25 @@
 spring:
   application:
     name: mcm-private-circle
+  datasource:
+    url: jdbc:h2:mem:mcm_private_circle;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
+  h2:
+    console:
+      enabled: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-in-local}
+    access-token-validity: PT2H
