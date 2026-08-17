@@ -78,26 +78,32 @@ Table products {
 
 Table customer_interest_products {
   id bigint [pk, increment]
-  customer_id bigint
-  product_id bigint
+  customer_id bigint [not null]
+  product_id bigint [not null]
   source_type interest_source_type [not null]
   visit_record_id bigint
   memo varchar(500)
-  saved_at datetime
+  saved_at datetime [not null]
+
+  indexes {
+    (visit_record_id, product_id) [unique, name: 'uk_interest_visit_record_product']
+  }
 
   Note: '''
   관심 제품의 출처는 source_type으로 구분한다.
   CUSTOMER: 고객이 앱에서 직접 저장한 관심 제품이며 visit_record_id는 NULL.
   CA: CA가 방문 기록 작성 과정에서 확인한 관심 제품이며 visit_record_id에 해당 방문 기록 ID를 저장한다.
   source_type과 visit_record_id 조합의 유효성은 서비스 로직에서 검증한다.
+  CUSTOMER 관심 제품은 customer_id + product_id를 서비스에서 중복 검사한다.
+  CA 관심 제품은 visit_record_id + product_id Unique로 중복을 방지한다.
   '''
 }
 
 Table visits {
   id bigint [pk, increment]
-  customer_id bigint
-  store_id bigint
-  visited_at datetime
+  customer_id bigint [not null]
+  store_id bigint [not null]
+  visited_at datetime [not null]
 
   Note: '''
   고객의 매장 방문 1회 단위를 저장한다.
@@ -109,14 +115,18 @@ Table visits {
 
 Table visit_records {
   id bigint [pk, increment]
-  visit_id bigint
-  customer_id bigint
-  ca_id bigint
+  visit_id bigint [not null]
+  customer_id bigint [not null]
+  ca_id bigint [not null]
   visit_purpose varchar(255)
   content text
   style_change_note text
   caution_note text
   created_at datetime [not null]
+
+  indexes {
+    visit_id [unique, name: 'uk_visit_records_visit']
+  }
 
   Note: '''
   기존 상담/채팅 내용을 저장하는 테이블이 아니라, 방문할 때마다 CA가 고객 정보를 간단히 남기는 방문 기록 테이블이다.
@@ -135,36 +145,40 @@ Table visit_records {
 
 Table purchase_history {
   id bigint [pk, increment]
-  customer_id bigint
-  product_id bigint
-  store_id bigint
+  customer_id bigint [not null]
+  product_id bigint [not null]
+  store_id bigint [not null]
   visit_id bigint
-  quantity int
-  purchased_at datetime
+  quantity int [not null]
+  purchased_at datetime [not null]
 }
 
 Table visit_stamps {
   id bigint [pk, increment]
-  visit_id bigint
-  customer_id bigint
-  issued_by_ca_id bigint
-  stamp_type varchar(30)
-  issued_at datetime
+  visit_id bigint [not null]
+  customer_id bigint [not null]
+  issued_by_ca_id bigint [not null]
+  stamp_type varchar(30) [not null]
+  issued_at datetime [not null]
+
+  indexes {
+    visit_id [unique, name: 'uk_visit_stamps_visit']
+  }
 }
 
 Table ai_journey_briefs {
   id bigint [pk, increment]
-  customer_id bigint
-  visit_id bigint
-  requested_by_ca_id bigint
+  customer_id bigint [not null]
+  visit_id bigint [not null]
+  requested_by_ca_id bigint [not null]
   summary text
   visit_purpose_summary text
   interest_summary text
   caution_summary text
   suggested_direction text
-  source_visit_count int
-  status brief_status
-  generated_at datetime
+  source_visit_count int [not null]
+  status brief_status [not null]
+  generated_at datetime [not null]
 
   Note: '''
   재방문 고객 응대를 위한 AI 브리프 테이블.
