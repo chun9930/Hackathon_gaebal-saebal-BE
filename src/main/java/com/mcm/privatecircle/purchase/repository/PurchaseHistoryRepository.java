@@ -1,5 +1,8 @@
 package com.mcm.privatecircle.purchase.repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 import com.mcm.privatecircle.purchase.entity.PurchaseHistory;
 
 import org.springframework.data.domain.Page;
@@ -13,6 +16,14 @@ public interface PurchaseHistoryRepository extends JpaRepository<PurchaseHistory
     Page<PurchaseHistory> findByCustomerIdAndStoreId(
         Long customerId,
         Long storeId,
+        Pageable pageable
+    );
+
+    @EntityGraph(attributePaths = "product")
+    List<PurchaseHistory> findByCustomerIdAndStoreIdAndPurchasedAtLessThan(
+        Long customerId,
+        Long storeId,
+        LocalDateTime purchasedAt,
         Pageable pageable
     );
 
