@@ -1,6 +1,10 @@
 package com.mcm.privatecircle.ai.service;
 
+import com.mcm.privatecircle.ai.client.AiClientException;
+import com.mcm.privatecircle.ai.client.AiClientTimeoutException;
+import com.mcm.privatecircle.ai.client.AiResponseParseException;
 import com.mcm.privatecircle.ai.client.GeminiBriefClient;
+import com.mcm.privatecircle.ai.dto.AiBriefCreateRequest;
 import com.mcm.privatecircle.ai.dto.AiBriefResponse;
 import com.mcm.privatecircle.ai.repository.AiJourneyBriefRepository;
 import com.mcm.privatecircle.customer.repository.CustomerRepository;
@@ -29,19 +33,24 @@ public class AiBriefService {
     private final AiJourneyBriefRepository repository;
     private final VisitRepository visitRepository;
     private final CustomerRepository customerRepository;
-    @SuppressWarnings("unused")
     private final GeminiBriefClient geminiBriefClient;
+    private final AiBriefSourceReader sourceReader;
+    private final AiBriefPersistenceService persistenceService;
 
     public AiBriefService(
         AiJourneyBriefRepository repository,
         VisitRepository visitRepository,
         CustomerRepository customerRepository,
-        GeminiBriefClient geminiBriefClient
+        GeminiBriefClient geminiBriefClient,
+        AiBriefSourceReader sourceReader,
+        AiBriefPersistenceService persistenceService
     ) {
         this.repository = repository;
         this.visitRepository = visitRepository;
         this.customerRepository = customerRepository;
         this.geminiBriefClient = geminiBriefClient;
+        this.sourceReader = sourceReader;
+        this.persistenceService = persistenceService;
     }
 
     @Transactional(readOnly = true)
@@ -80,6 +89,33 @@ public class AiBriefService {
                 PageRequest.of(page, size, HISTORY_SORT)
             ).map(AiBriefResponse::from)
         );
+    }
+
+    public AiBriefResponse create(
+        AuthenticatedUser authenticatedUser,
+        Long customerId,
+        AiBriefCreateRequest request
+    ) {
+        requireCa(authenticatedUser);
+        if (request == null || request.visitId() == null) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        var source = sourceReader.read(authenticatedUser, customerId, request.visitId());
+        try {
+            var result = geminiBriefClient.generate(source);
+            return AiBriefResponse.from(
+                persistenceService.saveGenerated(authenticatedUser, customerId, request.visitId(), source, result)
+            );
+        } catch (AiClientTimeoutException exception) {
+            persistenceService.saveFailed(authenticatedUser, customerId, request.visitId(), source, ErrorCode.AI_API_TIMEOUT);
+            throw new BusinessException(ErrorCode.AI_API_TIMEOUT, exception);
+        } catch (AiResponseParseException exception) {
+            persistenceService.saveFailed(authenticatedUser, customerId, request.visitId(), source, ErrorCode.AI_RESPONSE_PARSE_FAILED);
+            throw new BusinessException(ErrorCode.AI_RESPONSE_PARSE_FAILED, exception);
+        } catch (AiClientException exception) {
+            persistenceService.saveFailed(authenticatedUser, customerId, request.visitId(), source, ErrorCode.AI_API_FAILED);
+            throw new BusinessException(ErrorCode.AI_API_FAILED, exception);
+        }
     }
 
     private void requireCa(AuthenticatedUser authenticatedUser) {
