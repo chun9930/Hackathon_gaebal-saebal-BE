@@ -32,7 +32,7 @@ public class VisitRecordController {
     }
 
     @PostMapping("/visits/{visitId}/records")
-    @PreAuthorize("hasRole(''CA'')")
+    @PreAuthorize("hasRole('CA')")
     public ResponseEntity<ApiResponse<VisitRecordResponse>> createVisitRecord(
         @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
         @PathVariable Long visitId,
@@ -45,7 +45,7 @@ public class VisitRecordController {
     }
 
     @GetMapping("/visits/{visitId}/records")
-    @PreAuthorize("hasRole(''CA'')")
+    @PreAuthorize("hasRole('CA')")
     public ResponseEntity<ApiResponse<VisitRecordResponse>> getVisitRecord(
         @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
         @PathVariable Long visitId
@@ -56,7 +56,7 @@ public class VisitRecordController {
     }
 
     @PatchMapping("/visit-records/{visitRecordId}")
-    @PreAuthorize("hasRole(''CA'')")
+    @PreAuthorize("hasRole('CA')")
     public ResponseEntity<ApiResponse<VisitRecordResponse>> updateVisitRecord(
         @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
         @PathVariable Long visitRecordId,

@@ -21,6 +21,8 @@ public interface CustomerInterestProductRepository
 
     boolean existsByVisitRecordIdAndProductId(Long visitRecordId, Long productId);
 
+    boolean existsByProductId(Long productId);
+
     @EntityGraph(attributePaths = "product")
     Page<CustomerInterestProduct> findByCustomerIdAndSourceType(
         Long customerId,
