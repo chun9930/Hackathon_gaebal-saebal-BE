@@ -74,6 +74,7 @@ class AuthServiceIntegrationTest {
 		Customer customer = customerRepository.findById(response.customerId()).orElseThrow();
 		assertThat(customer.getName()).isEqualTo("Kim");
 		assertThat(customer.getPhoneNumber()).isEqualTo("01012345678");
+		assertThat(customer.getCustomerNo()).isEqualTo(String.format("C%08d", response.customerId()));
 		assertThat(customer.getQrToken()).isNotBlank();
 		assertThat(customerAccountRepository.findById(response.accountId())).isPresent();
 	}

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import com.mcm.privatecircle.global.response.PageResponse;
@@ -24,7 +25,7 @@ class VisitStampControllerTest {
     private final AuthenticatedUser customerUser = AuthenticatedUser.customer(4L, 5L);
 
     @Test
-    void 스탬프_발급은_201을_반환한다() {
+    void issueStampReturns201() {
         VisitStampCreateRequest request = new VisitStampCreateRequest("VISIT");
         VisitStampResponse result = mock(VisitStampResponse.class);
         when(service.issueStamp(caUser, 10L, request)).thenReturn(result);
@@ -34,8 +35,14 @@ class VisitStampControllerTest {
     }
 
     @Test
-    void CA와_CUSTOMER_목록은_200과_PageResponse를_반환한다() {
-        PageResponse<VisitStampResponse> page = new PageResponse<>(List.of(), 0, 20, 0, 0, false);
+    void getStampListsReturn200AndPageResponse() {
+        PageResponse<VisitStampResponse> page = new PageResponse<>(
+            List.of(new VisitStampResponse(
+                1L, 10L, 5L, "Alice", 3L, "Main Store", 2L, "Advisor Kim", "VISIT",
+                LocalDateTime.of(2026, 8, 17, 13, 0), LocalDateTime.of(2026, 8, 17, 12, 0)
+            )),
+            0, 20, 1, 1, false
+        );
         when(service.getCustomerStamps(caUser, 5L, 0, 20)).thenReturn(page);
         when(service.getMyStamps(customerUser, 0, 20)).thenReturn(page);
 

@@ -3,6 +3,8 @@ package com.mcm.privatecircle.visit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDateTime;
+
 import com.mcm.privatecircle.global.security.AuthenticatedUser;
 import com.mcm.privatecircle.visit.controller.VisitRecordController;
 import com.mcm.privatecircle.visit.dto.VisitRecordCreateRequest;
@@ -20,11 +22,12 @@ class VisitRecordControllerTest {
     private final AuthenticatedUser caUser = AuthenticatedUser.ca(1L, 2L, 3L);
 
     @Test
-    void 방문_기록_생성은_201을_반환한다() {
-        VisitRecordCreateRequest request =
-            new VisitRecordCreateRequest("목적", "내용", null, null);
-        VisitRecordResponse result =
-            new VisitRecordResponse(10L, 20L, 30L, 2L, "목적", "내용", null, null, null);
+    void createVisitRecordReturns201() {
+        VisitRecordCreateRequest request = new VisitRecordCreateRequest("purpose", "content", null, null);
+        VisitRecordResponse result = new VisitRecordResponse(
+            10L, 20L, 30L, "Alice", 2L, "Advisor Kim", 3L, "Main Store",
+            LocalDateTime.of(2026, 8, 17, 14, 0), "purpose", "content", null, null, null
+        );
         when(service.createVisitRecord(caUser, 20L, request)).thenReturn(result);
 
         var response = controller.createVisitRecord(caUser, 20L, request);
@@ -34,11 +37,12 @@ class VisitRecordControllerTest {
     }
 
     @Test
-    void 방문_기록_수정은_200을_반환한다() {
-        VisitRecordUpdateRequest request =
-            new VisitRecordUpdateRequest(null, "수정", null, null);
-        VisitRecordResponse result =
-            new VisitRecordResponse(10L, 20L, 30L, 2L, "목적", "수정", null, null, null);
+    void updateVisitRecordReturns200() {
+        VisitRecordUpdateRequest request = new VisitRecordUpdateRequest(null, "updated", null, null);
+        VisitRecordResponse result = new VisitRecordResponse(
+            10L, 20L, 30L, "Alice", 2L, "Advisor Kim", 3L, "Main Store",
+            LocalDateTime.of(2026, 8, 17, 14, 0), "purpose", "updated", null, null, null
+        );
         when(service.updateVisitRecord(caUser, 10L, request)).thenReturn(result);
 
         var response = controller.updateVisitRecord(caUser, 10L, request);

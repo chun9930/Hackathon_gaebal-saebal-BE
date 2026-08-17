@@ -79,6 +79,8 @@ public class AuthService {
 				LocalDateTime.now(KST)
 			)
 		);
+		customer.assignCustomerNo(generateCustomerNo(customer.getId()));
+		customer = customerRepository.save(customer);
 
 		AuthenticatedUser authenticatedUser = AuthenticatedUser.customer(account.getId(), customer.getId());
 		String accessToken = jwtTokenProvider.createAccessToken(authenticatedUser);
@@ -145,5 +147,9 @@ public class AuthService {
 			qrToken = UUID.randomUUID().toString().replace("-", "");
 		} while (customerRepository.existsByQrToken(qrToken));
 		return qrToken;
+	}
+
+	private String generateCustomerNo(Long customerId) {
+		return String.format("C%08d", customerId);
 	}
 }

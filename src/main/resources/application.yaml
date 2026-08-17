@@ -20,6 +20,10 @@ spring:
       enabled: true
 
 app:
+  mock-data:
+    seed-enabled: false
+    stores-resource: mock-data/stores.json
+    products-resource: mock-data/products.json
   jwt:
     secret: ${JWT_SECRET:change-me-in-local}
     access-token-validity: PT2H
