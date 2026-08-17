@@ -8,9 +8,14 @@ public record VisitStampResponse(
     Long stampId,
     Long visitId,
     Long customerId,
+    String customerName,
+    Long storeId,
+    String storeName,
     Long issuedByCaId,
+    String issuedByCaName,
     String stampType,
-    LocalDateTime issuedAt
+    LocalDateTime issuedAt,
+    LocalDateTime visitedAt
 ) {
 
     public static VisitStampResponse from(VisitStamp stamp) {
@@ -18,9 +23,14 @@ public record VisitStampResponse(
             stamp.getId(),
             stamp.getVisit().getId(),
             stamp.getCustomer().getId(),
+            stamp.getCustomer().getName(),
+            stamp.getVisit().getStore().getId(),
+            stamp.getVisit().getStore().getName(),
             stamp.getIssuedByCa().getId(),
+            stamp.getIssuedByCa().getName(),
             stamp.getStampType(),
-            stamp.getIssuedAt()
+            stamp.getIssuedAt(),
+            stamp.getVisit().getVisitedAt()
         );
     }
 }

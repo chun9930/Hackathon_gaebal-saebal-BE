@@ -116,11 +116,16 @@ public class Customer extends BaseTimeEntity {
 		return joinedAt;
 	}
 
+	public void assignCustomerNo(String customerNo) {
+		if (this.customerNo == null) {
+			this.customerNo = customerNo;
+		}
+	}
+
 	public void updateProfile(
 		String name,
 		String phoneNumber,
 		String profileImageUrl,
-		String membershipGrade,
 		String stylePreferences
 	) {
 		if (name != null) {
@@ -131,9 +136,6 @@ public class Customer extends BaseTimeEntity {
 		}
 		if (profileImageUrl != null) {
 			this.profileImageUrl = profileImageUrl;
-		}
-		if (membershipGrade != null) {
-			this.membershipGrade = membershipGrade;
 		}
 		if (stylePreferences != null) {
 			this.stylePreferences = stylePreferences;

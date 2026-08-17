@@ -12,9 +12,6 @@ public record CustomerProfileUpdateRequest(
 	@Size(max = 500)
 	String profileImageUrl,
 
-	@Size(max = 50)
-	String membershipGrade,
-
 	String stylePreferences
 ) {
 }

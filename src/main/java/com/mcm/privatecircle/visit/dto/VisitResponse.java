@@ -7,7 +7,9 @@ import com.mcm.privatecircle.visit.entity.Visit;
 public record VisitResponse(
     Long visitId,
     Long customerId,
+    String customerName,
     Long storeId,
+    String storeName,
     LocalDateTime visitedAt
 ) {
 
@@ -15,7 +17,9 @@ public record VisitResponse(
         return new VisitResponse(
             visit.getId(),
             visit.getCustomer().getId(),
+            visit.getCustomer().getName(),
             visit.getStore().getId(),
+            visit.getStore().getName(),
             visit.getVisitedAt()
         );
     }
