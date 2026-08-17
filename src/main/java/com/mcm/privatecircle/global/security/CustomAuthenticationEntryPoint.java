@@ -18,10 +18,20 @@ import org.springframework.stereotype.Component;
 @Component
 public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
+	public static final String ERROR_CODE_ATTRIBUTE =
+		CustomAuthenticationEntryPoint.class.getName() + ".ERROR_CODE";
+
 	@Override
-	public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException)
-		throws IOException, ServletException {
-		writeError(response, ErrorCode.INVALID_TOKEN);
+	public void commence(
+		HttpServletRequest request,
+		HttpServletResponse response,
+		AuthenticationException authException
+	) throws IOException, ServletException {
+		Object attribute = request.getAttribute(ERROR_CODE_ATTRIBUTE);
+		ErrorCode errorCode = attribute instanceof ErrorCode value
+			? value
+			: ErrorCode.INVALID_TOKEN;
+		writeError(response, errorCode);
 	}
 
 	private void writeError(HttpServletResponse response, ErrorCode errorCode) throws IOException {

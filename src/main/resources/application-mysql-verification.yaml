@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: ${MYSQL_JDBC_URL}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${MYSQL_DB_USERNAME}
+    password: ${MYSQL_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: ${MYSQL_DDL_AUTO:validate}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc:
+          time_zone: Asia/Seoul
+  h2:
+    console:
+      enabled: false
+
+app:
+  ai:
+    gemini:
+      api-key: ${GOOGLE_API_KEY}
+      model: ${GEMINI_MODEL:gemini-3.6-flash}
+      timeout: ${GEMINI_TIMEOUT:PT30S}
+
+# MySQL verification uses only isolated schema env vars.

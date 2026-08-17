@@ -15,6 +15,7 @@ import com.mcm.privatecircle.global.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -64,6 +65,30 @@ public class JwtTokenProvider {
 	}
 
 	public Authentication getAuthentication(String token) {
+		try {
+			return buildAuthentication(token);
+		} catch (ExpiredJwtException exception) {
+			throw new BusinessException(ErrorCode.TOKEN_EXPIRED, exception);
+		} catch (BusinessException exception) {
+			throw exception;
+		} catch (JwtException | IllegalArgumentException exception) {
+			throw new BusinessException(ErrorCode.INVALID_TOKEN, exception);
+		}
+	}
+
+	public String resolveToken(HttpServletRequest request) {
+		String bearer = request.getHeader("Authorization");
+		if (bearer == null || !bearer.startsWith("Bearer ")) {
+			return null;
+		}
+		return bearer.substring(7);
+	}
+
+	public String getSecret() {
+		return secret;
+	}
+
+	private Authentication buildAuthentication(String token) {
 		Claims claims = parseClaims(token);
 		Long accountId = getLongClaim(claims, "accountId");
 		String roleValue = claims.get("role", String.class);
@@ -95,18 +120,6 @@ public class JwtTokenProvider {
 			null,
 			authenticatedUser.getAuthorities()
 		);
-	}
-
-	public String resolveToken(HttpServletRequest request) {
-		String bearer = request.getHeader("Authorization");
-		if (bearer == null || !bearer.startsWith("Bearer ")) {
-			return null;
-		}
-		return bearer.substring(7);
-	}
-
-	public String getSecret() {
-		return secret;
 	}
 
 	private Claims parseClaims(String token) {
