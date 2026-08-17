@@ -12,8 +12,9 @@ trigger: always_on
 
 1. `PROJECT.md`
 2. `MCM_ERD_v6.dbml`
-3. 현재 구현 코드
-4. 사용자가 이후 명시적으로 확정한 최신 결정사항
+3. `backend-common-contract.md`
+4. 현재 구현 코드
+5. 사용자가 이후 명시적으로 확정한 최신 결정사항
 
 `PROJECT.md`와 `MCM_ERD_v6.dbml`에 없는 기능, 테이블, 권한, 상태값은 임의로 추가하지 않는다.
 
@@ -30,7 +31,7 @@ trigger: always_on
 - Spring Data JPA
 - Spring Security + JWT
 - REST API
-- OpenAI API
+- Google Gemini API
 - Swagger / OpenAPI
 - JUnit 5
 - Spring Boot Test
@@ -231,7 +232,7 @@ Authorization: Bearer {token}
 다음 값을 GitHub에 커밋하지 않는다.
 
 - JWT Secret
-- OpenAI API Key
+- Google Gemini API Key
 - 실제 운영 DB 비밀번호
 - 기타 Secret
 
@@ -292,7 +293,7 @@ REST 의미를 지킨다.
 - `404`: 리소스 없음
 - `409`: 중복/상태 충돌
 - `500`: 서버 내부 오류
-- `502`: OpenAI API 연동 실패
+- `502`: 외부 AI API 연동 실패
 
 ### 날짜/시간
 
@@ -502,17 +503,91 @@ ai_journey_briefs
 
 AI 브리프는 **실시간 채팅 기능이 아니라 특정 시점의 고객 여정을 요약한 스냅샷**이다.
 
-AI 입력에 사용하는 데이터:
+MVP에서는 Google Gemini API를 이용해 브리프를 생성한다.
 
-- 고객 기본 정보
-- 멤버십 등급
-- 스타일 선호
-- 과거 방문 기록
-- 관심 제품
-- 구매 이력
-- 주의사항
+### Gemini 입력
 
-OpenAI 응답은 다음 필드로 파싱한다.
+Entity 전체를 Gemini에 전달하지 않고 AI 전용 내부 DTO를 사용한다.
+
+고객:
+
+```text
+membershipGrade
+stylePreferences
+```
+
+과거 방문 기록:
+
+```text
+visitedAt
+visitPurpose
+content
+styleChangeNote
+cautionNote
+```
+
+관심 제품:
+
+```text
+productName
+category
+sourceType
+memo
+savedAt
+```
+
+구매 이력:
+
+```text
+productName
+category
+quantity
+purchasedAt
+```
+
+### 입력 범위
+
+- 과거 방문 기록은 기준 방문의 `visitedAt` 이전 최신 최대 5개
+- 관심 제품은 기준 방문의 `visitedAt` 이전에 저장된 항목 중 최신 최대 10개
+- 구매 이력은 기준 방문의 `visitedAt` 이전에 발생한 항목 중 최신 최대 10개
+- 과거 기준 방문을 다시 생성할 때 기준 방문 이후 데이터가 섞이지 않도록 시점을 제한한다.
+
+### AI 입력 금지
+
+다음 값은 Gemini 입력에 포함하지 않는다.
+
+```text
+name
+phoneNumber
+loginId
+passwordHash
+qrToken
+customerNo
+customerAccountId
+employeeAccountId
+JWT
+GOOGLE_API_KEY
+profileImageUrl
+```
+
+해커톤 무료 등급에서는 실제 고객 개인정보를 사용하지 않고 더미 데이터만 사용한다.
+
+### 백엔드 직접 계산
+
+```text
+visitCount
+stampCount
+lastVisitedAt
+sourceVisitCount
+```
+
+위 값은 Gemini에게 계산시키지 않는다.
+
+`sourceVisitCount`는 실제 Gemini 입력에 사용한 과거 방문 기록 수로 계산한다.
+
+### Gemini 출력
+
+JSON Schema 기반 Structured Output을 우선 사용하여 다음 구조로 받는다.
 
 ```text
 summary
@@ -522,31 +597,43 @@ cautionSummary
 suggestedDirection
 ```
 
-DB 상태 Enum:
+외부 AI 응답은 Structured Output을 사용하더라도 백엔드에서 다시 검증한다.
+
+### DB 상태
 
 ```text
 GENERATED
 FAILED
 ```
 
-임의로 다른 상태값을 추가하지 않는다.
+다른 상태값을 임의 추가하지 않는다.
 
 동일 방문 기준 여러 번 브리프 생성은 허용한다.
 
 최신 조회는 `customer_id + visit_id` 기준 `generated_at`이 가장 최신인 행을 반환한다.
 
-OpenAI API 실패 시 `FAILED` 브리프 저장을 허용하며 요약 필드는 NULL일 수 있다.
+Gemini API 실패 시 `FAILED` 브리프 저장을 허용하며 요약 필드는 NULL일 수 있다.
 
----
+조회 API에서는 Gemini API를 재호출하지 않는다.
+## 17. Gemini API 연동 규칙
 
-## 17. OpenAI 연동 규칙
+Gemini 호출 코드는 `ai.client`로 분리한다.
 
-OpenAI 호출 코드는 `ai.client`로 분리한다.
+해커톤 기본 권장 모델은 다음과 같다.
 
-외부 API 응답을 그대로 신뢰하지 않는다.
+```text
+gemini-3.6-flash
+```
+
+모델명은 Service 여러 곳에 직접 하드코딩하지 않고 설정값으로 관리한다. 사용 전 Google 공식 문서에서 모델의 현재 제공 상태와 Free Tier 지원 여부를 확인한다.
+
+Java에서는 Google 공식 GenAI SDK(`com.google.genai:google-genai`) 사용을 우선한다. 라이브러리 버전은 구현 시점의 최신 안정 버전을 확인한다.
+
+외부 AI 응답을 그대로 신뢰하지 않는다.
 
 반드시:
 
+- JSON Schema 기반 Structured Output 우선 적용
 - 응답 구조 검증
 - JSON 파싱
 - timeout 처리
@@ -560,7 +647,9 @@ OpenAI 호출 코드는 `ai.client`로 분리한다.
 - `AI_API_TIMEOUT`
 - `AI_RESPONSE_PARSE_FAILED`
 
-OpenAI API Key를 코드에 하드코딩하지 않는다.
+ErrorCode는 특정 AI 공급자 이름을 사용하지 않는다.
+
+API Key는 `GOOGLE_API_KEY` 환경변수로 관리하고 코드에 하드코딩하지 않는다.
 
 외부 API 호출 전체를 장시간 DB 트랜잭션으로 묶지 않는다.
 
@@ -568,12 +657,18 @@ OpenAI API Key를 코드에 하드코딩하지 않는다.
 
 ```text
 필요 데이터 조회
-→ OpenAI API 호출
-→ 브리프 저장 트랜잭션
+→ AI 전용 Source DTO 구성
+→ Gemini API 호출
+→ 응답 검증/파싱
+→ 짧은 저장 트랜잭션
+→ ai_journey_briefs 저장
 ```
 
----
+AI 브리프 생성 POST 요청에서만 Gemini API를 호출한다.
 
+최신 브리프 및 브리프 이력 GET 요청에서는 DB만 조회한다.
+
+개발 중 일반 Service 테스트에서는 Gemini 실제 호출을 반복하지 않고 Mock 또는 Stub을 우선 사용한다.
 ## 18. 트랜잭션 규칙
 
 다음 기능은 비즈니스 단위의 정합성을 보장해야 한다.
@@ -612,7 +707,10 @@ INVALID_REQUEST
 INVALID_CREDENTIALS
 TOKEN_EXPIRED
 INVALID_TOKEN
+
 FORBIDDEN
+FORBIDDEN_CA
+
 ACCOUNT_NOT_FOUND
 CUSTOMER_NOT_FOUND
 CA_NOT_FOUND
@@ -620,13 +718,19 @@ STORE_NOT_FOUND
 PRODUCT_NOT_FOUND
 VISIT_NOT_FOUND
 VISIT_RECORD_NOT_FOUND
+
 DUPLICATE_LOGIN_ID
 DUPLICATE_PHONE_NUMBER
+DUPLICATE_QR_TOKEN
 DUPLICATE_INTEREST_PRODUCT
 VISIT_RECORD_ALREADY_EXISTS
 STAMP_ALREADY_ISSUED
+
+PRODUCT_IN_USE
+
 INVALID_INTEREST_SOURCE
 VISIT_CUSTOMER_MISMATCH
+
 AI_API_TIMEOUT
 AI_RESPONSE_PARSE_FAILED
 ```
@@ -695,10 +799,14 @@ AI_RESPONSE_PARSE_FAILED
 ### AI
 
 - 브리프 생성 성공
-- 최신 브리프 조회
+- Structured Output 5개 필드 검증
+- 최신 브리프 조회 시 Gemini 재호출 없음
+- 브리프 이력 조회 시 Gemini 재호출 없음
+- 기준 방문 이후 데이터가 AI 입력에 섞이지 않는지 검증
 - timeout 처리
-- JSON 파싱 실패
+- JSON 파싱/구조 검증 실패
 - FAILED 저장
+- 일반 단위 테스트에서는 Mock/Stub 사용
 
 ---
 

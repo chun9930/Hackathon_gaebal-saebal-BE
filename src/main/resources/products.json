@@ -1,0 +1,135 @@
+[
+  {
+    "productCode": "bag001",
+    "name": "Pina 비세토스 탬버린 백",
+    "category": "가방",
+    "price": 1690000,
+    "imageUrl": "/images/product/bag001.jpg"
+  },
+  {
+    "productCode": "bag002",
+    "name": "Stark 사이드 스터드 골드 크리스탈 비세토스 백팩",
+    "category": "가방",
+    "price": 2290000,
+    "imageUrl": "/images/product/bag002.jpg"
+  },
+  {
+    "productCode": "bag003",
+    "name": "Rockstar 골드 크리스탈 비세토스 베니티 케이스",
+    "category": "가방",
+    "price": 1550000,
+    "imageUrl": "/images/product/bag003.jpg"
+  },
+  {
+    "productCode": "bag004",
+    "name": "Fursten 골드 크리스탈 비세토스 벨트백",
+    "category": "가방",
+    "price": 1450000,
+    "imageUrl": "/images/product/bag004.jpg"
+  },
+  {
+    "productCode": "bag005",
+    "name": "New Liz 비세토스 쇼퍼",
+    "category": "가방",
+    "price": 1090000,
+    "imageUrl": "/images/product/bag005.jpg"
+  },
+  {
+    "productCode": "bag006",
+    "name": "Aren 노바 모노그램 ECONYL® 크로스바디",
+    "category": "가방",
+    "price": 1090000,
+    "imageUrl": "/images/product/bag006.jpg"
+  },
+  {
+    "productCode": "bag007",
+    "name": "Aren 노바 나일론 토트",
+    "category": "가방",
+    "price": 990000,
+    "imageUrl": "/images/product/bag007.jpg"
+  },
+  {
+    "productCode": "bag008",
+    "name": "Aren 노바 모노그램 ECONYL® 위켄더",
+    "category": "가방",
+    "price": 1850000,
+    "imageUrl": "/images/product/bag008.jpg"
+  },
+  {
+    "productCode": "bag009",
+    "name": "Aren 노바 모노그램 ECONYL® 토트",
+    "category": "가방",
+    "price": 1350000,
+    "imageUrl": "/images/product/bag009.jpg"
+  },
+  {
+    "productCode": "bag010",
+    "name": "Aren 노바 나일론 백팩",
+    "category": "가방",
+    "price": 1450000,
+    "imageUrl": "/images/product/bag010.jpg"
+  },
+  {
+    "productCode": "acc001",
+    "name": "페이즐리 코튼 실크 스카프",
+    "category": "악세사리",
+    "price": 330000,
+    "imageUrl": "/images/product/acc001.jpg"
+  },
+  {
+    "productCode": "acc002",
+    "name": "애니멀 패턴 쁘띠 실크 스카프",
+    "category": "악세사리",
+    "price": 195000,
+    "imageUrl": "/images/product/acc002.jpg"
+  },
+  {
+    "productCode": "acc003",
+    "name": "모노그램 프린트 트라이엥글 실크 스카프",
+    "category": "악세사리",
+    "price": 390000,
+    "imageUrl": "/images/product/acc003.jpg"
+  },
+  {
+    "productCode": "per001",
+    "name": "코스믹 스타 오 드 퍼퓸",
+    "category": "향수",
+    "price": 94000,
+    "imageUrl": "/images/product/per001.jpg"
+  },
+  {
+    "productCode": "per002",
+    "name": "코지 캣 오 드 퍼퓸",
+    "category": "향수",
+    "price": 229000,
+    "imageUrl": "/images/product/per002.jpg"
+  },
+  {
+    "productCode": "per003",
+    "name": "달링 독시 오 드 퍼퓸",
+    "category": "향수",
+    "price": 210000,
+    "imageUrl": "/images/product/per003.jpg"
+  },
+  {
+    "productCode": "tec001",
+    "name": "엠보스드 모노그램 레더 에어팟 프로 케이스",
+    "category": "테크",
+    "price": 310000,
+    "imageUrl": "/images/product/tec001.jpg"
+  },
+  {
+    "productCode": "tec002",
+    "name": "비세토스 Apple Watch 밴드",
+    "category": "테크",
+    "price": 290000,
+    "imageUrl": "/images/product/tec002.jpg"
+  },
+  {
+    "productCode": "tec003",
+    "name": "MCM X CASETiFY 모노그램 iPhone 17 Pro 케이스",
+    "category": "테크",
+    "price": 239000,
+    "imageUrl": "/images/product/tec003.jpg"
+  }
+]

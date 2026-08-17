@@ -189,8 +189,8 @@ global/exception
 | `PRODUCT_IN_USE` | 409 | 참조 중인 상품 삭제 시도 |
 | `INVALID_INTEREST_SOURCE` | 400 | 관심 제품 출처 조합 오류 |
 | `VISIT_CUSTOMER_MISMATCH` | 400 | 방문 고객 불일치 |
-| `AI_API_TIMEOUT` | 502 | OpenAI API 시간 초과 |
-| `AI_RESPONSE_PARSE_FAILED` | 502 | OpenAI 응답 파싱 실패 |
+| `AI_API_TIMEOUT` | 502 | 외부 AI API 시간 초과 |
+| `AI_RESPONSE_PARSE_FAILED` | 502 | AI 응답 구조/파싱 실패 |
 
 ## 구현 규칙
 
@@ -555,9 +555,9 @@ Role은 DB 컬럼이 아니라 Spring Security/JWT 애플리케이션 레벨 구
 
 ---
 
-## 8.2 ErrorCode 문서 누락 — 함께 정리 필요
+## 8.2 ErrorCode 정합성 검증 — 해결 완료
 
-`PROJECT.md`의 공통 ErrorCode 표에는 없지만 본문의 개별 정책에서는 다음 코드가 이미 사용되고 있다.
+기존 검토에서 `PROJECT.md` 본문에는 사용되고 있었지만 공통 ErrorCode 목록에는 누락되어 있던 다음 코드의 정합성 문제가 확인되었다.
 
 ```text
 DUPLICATE_QR_TOKEN
@@ -565,40 +565,52 @@ PRODUCT_IN_USE
 FORBIDDEN_CA
 ```
 
-따라서 실제 `ErrorCode` Enum에는 위 세 코드를 포함하는 것으로 확정한다.
+현재 `PROJECT.md`의 공통 ErrorCode 목록에 위 세 코드가 모두 반영되었으며, 본 문서에서 확정한 `ErrorCode` 목록과 동일하게 정리되었다.
 
-향후 `PROJECT.md`의 공통 ErrorCode 표에도 위 세 코드를 추가하면 문서 일관성이 맞는다.
+따라서 ErrorCode 관련 문서 누락 문제는 **해결 완료**로 판단한다.
 
-이것은 새로운 기능 추가가 아니라 현재 PROJECT 본문에 이미 존재하는 ErrorCode를 공통 목록에 합치는 작업이다.
+현재 공통 구현에서는 다음 원칙을 유지한다.
+
+* ErrorCode는 단일 `ErrorCode` Enum으로 관리한다.
+* 각 ErrorCode는 `HttpStatus`, `code`, `message`를 가진다.
+* 기존 ErrorCode와 동일한 의미의 코드를 중복 생성하지 않는다.
+* 새로운 ErrorCode가 필요한 경우 기존 목록과 중복 여부를 먼저 확인한다.
+* `GlobalExceptionHandler`는 `ErrorCode`를 기준으로 공통 실패 응답을 생성한다.
 
 ---
 
-## 8.3 `created_at` NULL 제약 — PROJECT와 ERD 정합성 보완 필요
+## 8.3 `created_at` 및 `joined_at` NULL 제약 정합성 검증 — 해결 완료
 
-`PROJECT.md`에서는 여러 테이블의 `created_at`을 `NOT NULL`로 정의하고 있다.
+기존 검토에서 `PROJECT.md`의 시간 컬럼 정책과 `MCM_ERD_v6.dbml`의 NULL 제약이 일부 일치하지 않는 문제가 확인되었다.
 
-반면 현재 `MCM_ERD_v6.dbml`에서는 다음 두 계정 테이블만 `created_at [not null]`이 명시되어 있다.
-
-```text
-customer_accounts
-employee_accounts
-```
-
-다음 테이블의 `created_at`은 ERD상 `NOT NULL` 표시가 없다.
+현재 ERD에는 다음 컬럼의 `NOT NULL` 제약이 반영되어 있다.
 
 ```text
-stores
-customers
-client_advisors
-products
-visit_records
+customer_accounts.created_at
+employee_accounts.created_at
+stores.created_at
+customers.joined_at
+customers.created_at
+client_advisors.created_at
+products.created_at
+visit_records.created_at
 ```
 
-이번 공통 정책에서는 JPA Auditing으로 `createdAt`을 자동 생성하므로 애플리케이션 실행에는 문제를 만들지 않도록 설계한다.
+이에 따라 `PROJECT.md`에서 정의한 해당 컬럼의 필수값 정책과 ERD의 NULL 제약이 일치하도록 정리되었다.
 
-다만 PROJECT와 ERD를 완전히 일치시키려면 추후 ERD의 위 `created_at` 컬럼에 `[not null]`을 명시하는 것을 권장한다.
+따라서 기존의 `created_at` 및 `customers.joined_at` NULL 제약 불일치 문제는 **해결 완료**로 판단한다.
 
-추가로 `customers.joined_at`도 PROJECT에서는 `NOT NULL` 정책이지만 현재 ERD에는 `[not null]` 표시가 없으므로 함께 맞추는 것이 좋다.
+공통 시간 처리 정책은 기존 확정사항을 그대로 유지한다.
+
+```text
+BaseTimeEntity
+└── createdAt
+```
+
+* ERD에 `created_at` 컬럼이 존재하는 Entity는 `BaseTimeEntity`를 통해 `createdAt`을 관리한다.
+* `BaseTimeEntity`는 Spring Data JPA Auditing을 사용한다.
+* `updatedAt`은 현재 ERD의 공통 컬럼이 아니므로 임의로 추가하지 않는다.
+* `joinedAt`, `visitedAt`, `savedAt`, `purchasedAt`, `issuedAt`, `generatedAt`은 각각 별도의 비즈니스 의미를 가지므로 각 Entity에서 직접 관리한다.
 
 ---
 
@@ -617,11 +629,21 @@ visit_records
 
 ---
 
+### AI 공급자 정책과의 경계
+
+이 문서는 공통 응답, ErrorCode, JWT Principal, BaseTime, Package, API Prefix만 확정한다.
+
+Gemini 모델, AI 입력 데이터, Prompt, Structured Output, API Key 등 AI 공급자별 구현 정책은 `PROJECT.md`, `backend-rules.md`, `AGENTS.md`를 따른다.
+
+따라서 AI 공급자가 변경되더라도 본 문서의 6개 공통 계약을 임의로 변경하지 않는다.
+
+---
+
 # 9. 팀 공통 적용 규칙
 
 두 백엔드 담당자는 기능 구현 전에 이 문서의 6개 항목을 공통 기준으로 사용한다.
 
-기존 `backend-rules.md`와 `agents.md`에 동일한 내용이 존재해도 삭제할 필요는 없다.
+기존 `backend-rules.md`와 `AGENTS.md`에 동일한 내용이 존재해도 삭제할 필요는 없다.
 
 다만 서로 다른 구현 방식이 적혀 있을 경우 이 문서의 확정사항에 맞춰 통일한다.
 
