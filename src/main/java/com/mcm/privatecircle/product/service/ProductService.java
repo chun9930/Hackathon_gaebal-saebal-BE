@@ -20,9 +20,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductService {
 
 	private final ProductRepository productRepository;
+	private final ProductReferenceChecker productReferenceChecker;
 
-	public ProductService(ProductRepository productRepository) {
+	public ProductService(
+		ProductRepository productRepository,
+		ProductReferenceChecker productReferenceChecker
+	) {
 		this.productRepository = productRepository;
+		this.productReferenceChecker = productReferenceChecker;
 	}
 
 	public List<ProductSummaryResponse> getProducts() {
@@ -80,6 +85,9 @@ public class ProductService {
 	public void deleteProduct(AuthenticatedUser authenticatedUser, Long productId) {
 		assertCa(authenticatedUser);
 		Product product = findProduct(productId);
+		if (productReferenceChecker.isProductInUse(productId)) {
+			throw new BusinessException(ErrorCode.PRODUCT_IN_USE);
+		}
 		productRepository.delete(product);
 	}
 

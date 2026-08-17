@@ -13,4 +13,8 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
     Optional<Visit> findByIdAndStoreId(Long visitId, Long storeId);
 
     Page<Visit> findByCustomerIdAndStoreId(Long customerId, Long storeId, Pageable pageable);
+
+    long countByCustomerId(Long customerId);
+
+    Optional<Visit> findTopByCustomerIdOrderByVisitedAtDescIdDesc(Long customerId);
 }

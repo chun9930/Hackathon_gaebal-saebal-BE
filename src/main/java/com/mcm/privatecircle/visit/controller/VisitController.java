@@ -32,7 +32,7 @@ public class VisitController {
     }
 
     @PostMapping("/visits")
-    @PreAuthorize("hasRole(''CA'')")
+    @PreAuthorize("hasRole('CA')")
     public ResponseEntity<ApiResponse<VisitResponse>> createVisit(
         @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
         @Valid @RequestBody VisitCreateRequest request
@@ -42,7 +42,7 @@ public class VisitController {
     }
 
     @GetMapping("/customers/{customerId}/visits")
-    @PreAuthorize("hasRole(''CA'')")
+    @PreAuthorize("hasRole('CA')")
     public ResponseEntity<ApiResponse<PageResponse<VisitResponse>>> getCustomerVisits(
         @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
         @PathVariable Long customerId,
@@ -55,7 +55,7 @@ public class VisitController {
     }
 
     @GetMapping("/visits/{visitId}")
-    @PreAuthorize("hasRole(''CA'')")
+    @PreAuthorize("hasRole('CA')")
     public ResponseEntity<ApiResponse<VisitResponse>> getVisit(
         @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
         @PathVariable Long visitId
