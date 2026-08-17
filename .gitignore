@@ -38,3 +38,7 @@ out/
 
 # Local agent skills
 /skills/
+
+# Local work logs
+/daily-log/
+

@@ -14,7 +14,9 @@ import com.mcm.privatecircle.ai.dto.AiBriefResponse;
 import com.mcm.privatecircle.ai.entity.AiJourneyBrief;
 import com.mcm.privatecircle.ai.entity.BriefStatus;
 import com.mcm.privatecircle.ai.repository.AiJourneyBriefRepository;
+import com.mcm.privatecircle.ai.service.AiBriefPersistenceService;
 import com.mcm.privatecircle.ai.service.AiBriefService;
+import com.mcm.privatecircle.ai.service.AiBriefSourceReader;
 import com.mcm.privatecircle.customer.entity.Customer;
 import com.mcm.privatecircle.customer.repository.CustomerRepository;
 import com.mcm.privatecircle.global.response.PageResponse;
@@ -32,11 +34,15 @@ class AiBriefServiceNoGeminiTest {
     private final VisitRepository visitRepository = mock(VisitRepository.class);
     private final CustomerRepository customerRepository = mock(CustomerRepository.class);
     private final GeminiBriefClient geminiBriefClient = mock(GeminiBriefClient.class);
+    private final AiBriefSourceReader sourceReader = mock(AiBriefSourceReader.class);
+    private final AiBriefPersistenceService persistenceService = mock(AiBriefPersistenceService.class);
     private final AiBriefService service = new AiBriefService(
         repository,
         visitRepository,
         customerRepository,
-        geminiBriefClient
+        geminiBriefClient,
+        sourceReader,
+        persistenceService
     );
 
     @Test
