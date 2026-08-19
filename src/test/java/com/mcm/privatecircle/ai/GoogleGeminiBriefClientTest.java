@@ -3,8 +3,11 @@ package com.mcm.privatecircle.ai;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicReference;
 
+import com.mcm.privatecircle.ai.client.AiClientTimeoutException;
 import com.mcm.privatecircle.ai.client.AiResponseParseException;
 import com.mcm.privatecircle.ai.client.GoogleGeminiBriefClient;
 import com.mcm.privatecircle.ai.config.GeminiProperties;
@@ -21,6 +24,45 @@ class GoogleGeminiBriefClientTest {
         java.util.List.of(),
         0
     );
+
+    @Test
+    void generateUsesConfiguredRequesterToObtainRawJson() {
+        AtomicReference<String> capturedPrompt = new AtomicReference<>();
+        GoogleGeminiBriefClient client = new GoogleGeminiBriefClient(
+            new GeminiProperties("test-key", "gemini-3.6-flash", Duration.ofSeconds(30)),
+            prompt -> {
+                capturedPrompt.set(prompt);
+                return """
+                    {
+                      \"summary\": \"summary\",
+                      \"visitPurposeSummary\": \"purpose\",
+                      \"interestSummary\": \"interest\",
+                      \"cautionSummary\": \"caution\",
+                      \"suggestedDirection\": \"direction\"
+                    }
+                    """;
+            }
+        );
+
+        var result = client.generate(source);
+
+        assertThat(capturedPrompt.get()).contains("Model=gemini-3.6-flash");
+        assertThat(capturedPrompt.get()).contains("VIP");
+        assertThat(result.summary()).isEqualTo("summary");
+    }
+
+    @Test
+    void generateMapsTimeoutFailuresToAiClientTimeoutException() {
+        GoogleGeminiBriefClient client = new GoogleGeminiBriefClient(
+            new GeminiProperties("test-key", "gemini-3.6-flash", Duration.ofSeconds(30)),
+            prompt -> {
+                throw new RuntimeException(new HttpTimeoutException("timeout"));
+            }
+        );
+
+        assertThatThrownBy(() -> client.generate(source))
+            .isInstanceOf(AiClientTimeoutException.class);
+    }
 
     @Test
     void generateParsesValidJson() {

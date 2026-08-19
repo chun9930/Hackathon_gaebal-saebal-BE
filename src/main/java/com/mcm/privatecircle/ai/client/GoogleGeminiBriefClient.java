@@ -1,14 +1,23 @@
 package com.mcm.privatecircle.ai.client;
 
+import java.io.InterruptedIOException;
+import java.net.SocketTimeoutException;
+import java.net.http.HttpTimeoutException;
+import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.genai.Client;
+import com.google.genai.types.GenerateContentConfig;
+import com.google.genai.types.HttpOptions;
+import com.google.genai.types.Schema;
 import com.mcm.privatecircle.ai.config.GeminiProperties;
 import com.mcm.privatecircle.ai.dto.AiBriefSource;
 import com.mcm.privatecircle.ai.dto.GeminiBriefResult;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -19,10 +28,17 @@ public class GoogleGeminiBriefClient implements GeminiBriefClient {
 
     private final GeminiProperties properties;
     private final ObjectMapper objectMapper;
+    private final RawJsonRequester rawJsonRequester;
 
+    @Autowired
     public GoogleGeminiBriefClient(GeminiProperties properties) {
+        this(properties, createSdkRequester(properties));
+    }
+
+    public GoogleGeminiBriefClient(GeminiProperties properties, RawJsonRequester rawJsonRequester) {
         this.properties = properties;
         this.objectMapper = new ObjectMapper().findAndRegisterModules();
+        this.rawJsonRequester = rawJsonRequester;
     }
 
     @Override
@@ -32,9 +48,25 @@ public class GoogleGeminiBriefClient implements GeminiBriefClient {
     }
 
     protected String requestRawJson(String prompt) {
-        throw new AiClientException(
-            "Google Gemini external call is not enabled in the current safe local mode."
-        );
+        try {
+            String rawJson = rawJsonRequester.request(prompt);
+            if (rawJson == null || rawJson.isBlank()) {
+                throw new AiClientException("Gemini returned blank response");
+            }
+            return rawJson;
+        } catch (AiClientException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            if (isTimeout(exception)) {
+                throw new AiClientTimeoutException("Gemini request timed out", exception);
+            }
+            throw new AiClientException("Gemini external call failed", exception);
+        } catch (Exception exception) {
+            if (isTimeout(exception)) {
+                throw new AiClientTimeoutException("Gemini request timed out", exception);
+            }
+            throw new AiClientException("Gemini external call failed", exception);
+        }
     }
 
     private GeminiBriefResult parseAndValidate(String rawJson) {
@@ -83,4 +115,79 @@ public class GoogleGeminiBriefClient implements GeminiBriefClient {
             throw new AiClientException("Failed to serialize AI source", exception);
         }
     }
+
+    private static RawJsonRequester createSdkRequester(GeminiProperties properties) {
+        return prompt -> {
+            HttpOptions httpOptions = HttpOptions.builder()
+                .timeout(Math.toIntExact(properties.timeout().toMillis()))
+                .build();
+
+            GenerateContentConfig config = GenerateContentConfig.builder()
+                .responseMimeType("application/json")
+                .responseSchema(buildResponseSchema())
+                .httpOptions(httpOptions)
+                .build();
+
+            try (Client client = Client.builder()
+                .apiKey(properties.apiKey())
+                .httpOptions(httpOptions)
+                .build()) {
+                return client.models.generateContent(properties.model(), prompt, config).text();
+            }
+        };
+    }
+
+    private static Schema buildResponseSchema() {
+        Schema stringSchema = Schema.builder()
+            .type("STRING")
+            .build();
+
+        return Schema.builder()
+            .type("OBJECT")
+            .properties(Map.of(
+                "summary", stringSchema,
+                "visitPurposeSummary", stringSchema,
+                "interestSummary", stringSchema,
+                "cautionSummary", stringSchema,
+                "suggestedDirection", stringSchema
+            ))
+            .required(List.of(
+                "summary",
+                "visitPurposeSummary",
+                "interestSummary",
+                "cautionSummary",
+                "suggestedDirection"
+            ))
+            .propertyOrdering(
+                "summary",
+                "visitPurposeSummary",
+                "interestSummary",
+                "cautionSummary",
+                "suggestedDirection"
+            )
+            .build();
+    }
+
+    private boolean isTimeout(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof AiClientTimeoutException
+                || current instanceof HttpTimeoutException
+                || current instanceof SocketTimeoutException
+                || current instanceof InterruptedIOException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    @FunctionalInterface
+    public interface RawJsonRequester {
+        String request(String prompt) throws Exception;
+    }
 }
+
+
+
+
