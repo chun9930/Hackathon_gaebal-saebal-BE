@@ -2,11 +2,11 @@ spring:
   datasource:
     url: ${MYSQL_JDBC_URL}
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: ${MYSQL_DB_USERNAME}
-    password: ${MYSQL_DB_PASSWORD}
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: ${MYSQL_DDL_AUTO:validate}
+      ddl-auto: update
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect

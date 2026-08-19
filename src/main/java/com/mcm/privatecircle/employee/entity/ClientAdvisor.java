@@ -64,4 +64,10 @@ public class ClientAdvisor extends BaseTimeEntity {
 			this.name = name;
 		}
 	}
+
+	public void assignStore(Store store) {
+		if (store != null) {
+			this.store = store;
+		}
+	}
 }

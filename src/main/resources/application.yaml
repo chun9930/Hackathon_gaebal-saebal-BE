@@ -21,14 +21,32 @@ spring:
 
 app:
   mock-data:
-    seed-enabled: false
+    seed-enabled: true
     stores-resource: mock-data/stores.json
     products-resource: mock-data/products.json
+    employee-seed-enabled: true
+    employees:
+      - login-id: CA-1092
+        password: "1092"
+        name: 이지원
+        store-name: MCM HAUS
+      - login-id: CA-1093
+        password: "1093"
+        name: 박지윤
+        store-name: MCM 롯데백화점 잠실점
+      - login-id: CA-1094
+        password: "1094"
+        name: 이현우
+        store-name: MCM 롯데백화점 본점
+      - login-id: CA-1095
+        password: "1095"
+        name: 정수빈
+        store-name: MCM 신라면세점 서울점
   jwt:
     secret: ${JWT_SECRET:change-me-in-local}
     access-token-validity: PT2H
   ai:
     gemini:
-      api-key: ${GOOGLE_API_KEY:test-google-api-key}
+      api-key: ${GOOGLE_API_KEY:}
       model: ${GEMINI_MODEL:gemini-3.6-flash}
       timeout: ${GEMINI_TIMEOUT:PT30S}

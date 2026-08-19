@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -65,5 +66,15 @@ public class VisitRecordController {
         return ResponseEntity.ok(ApiResponse.success(
             visitRecordService.updateVisitRecord(authenticatedUser, visitRecordId, request)
         ));
+    }
+
+    @DeleteMapping("/visit-records/{visitRecordId}")
+    @PreAuthorize("hasRole('CA')")
+    public ResponseEntity<ApiResponse<Void>> deleteVisitRecord(
+        @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
+        @PathVariable Long visitRecordId
+    ) {
+        visitRecordService.deleteVisitRecord(authenticatedUser, visitRecordId);
+        return ResponseEntity.ok(ApiResponse.success(null, "상담 기록이 삭제되었습니다."));
     }
 }

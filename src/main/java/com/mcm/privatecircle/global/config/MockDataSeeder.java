@@ -7,6 +7,11 @@ import java.util.List;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mcm.privatecircle.account.entity.EmployeeAccount;
+import com.mcm.privatecircle.account.repository.EmployeeAccountRepository;
+import com.mcm.privatecircle.employee.entity.ClientAdvisor;
+import com.mcm.privatecircle.employee.repository.ClientAdvisorRepository;
+import com.mcm.privatecircle.global.config.MockDataProperties.EmployeeSeedProperties;
 import com.mcm.privatecircle.product.entity.Product;
 import com.mcm.privatecircle.product.repository.ProductRepository;
 import com.mcm.privatecircle.store.entity.Store;
@@ -17,6 +22,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Component
 public class MockDataSeeder implements ApplicationRunner {
@@ -28,16 +34,25 @@ public class MockDataSeeder implements ApplicationRunner {
 
     private final StoreRepository storeRepository;
     private final ProductRepository productRepository;
+    private final EmployeeAccountRepository employeeAccountRepository;
+    private final ClientAdvisorRepository clientAdvisorRepository;
+    private final PasswordEncoder passwordEncoder;
     private final MockDataProperties properties;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     public MockDataSeeder(
         StoreRepository storeRepository,
         ProductRepository productRepository,
+        EmployeeAccountRepository employeeAccountRepository,
+        ClientAdvisorRepository clientAdvisorRepository,
+        PasswordEncoder passwordEncoder,
         MockDataProperties properties
     ) {
         this.storeRepository = storeRepository;
         this.productRepository = productRepository;
+        this.employeeAccountRepository = employeeAccountRepository;
+        this.clientAdvisorRepository = clientAdvisorRepository;
+        this.passwordEncoder = passwordEncoder;
         this.properties = properties;
     }
 
@@ -49,15 +64,14 @@ public class MockDataSeeder implements ApplicationRunner {
         }
         seedStoresIfEmpty();
         seedProductsIfEmpty();
+        seedDevelopmentAdvisors();
     }
 
     private void seedStoresIfEmpty() throws IOException {
-        if (storeRepository.count() > 0) {
-            return;
-        }
         List<StoreSeedItem> stores = readList(properties.storesResource(), STORE_LIST);
         storeRepository.saveAll(
             stores.stream()
+                .filter(item -> !storeRepository.existsByName(item.name()))
                 .map(item -> new Store(item.name(), item.location()))
                 .toList()
         );
@@ -81,6 +95,43 @@ public class MockDataSeeder implements ApplicationRunner {
                 ))
                 .toList()
         );
+    }
+
+    private void seedDevelopmentAdvisors() {
+        if (!properties.employeeSeedEnabled() || properties.employees() == null) {
+            return;
+        }
+        properties.employees().forEach(this::seedDevelopmentAdvisor);
+    }
+
+    private void seedDevelopmentAdvisor(EmployeeSeedProperties employee) {
+        Store store = findDevelopmentAdvisorStore(employee.storeName());
+        EmployeeAccount account = employeeAccountRepository.findByLoginId(employee.loginId())
+            .orElseGet(() -> employeeAccountRepository.save(
+                new EmployeeAccount(
+                    employee.loginId(),
+                    passwordEncoder.encode(employee.password())
+                )
+            ));
+        clientAdvisorRepository.findByEmployeeAccountId(account.getId())
+            .ifPresentOrElse(
+                advisor -> {
+                    advisor.updateName(employee.name());
+                    advisor.assignStore(store);
+                },
+                () -> clientAdvisorRepository.save(
+                    new ClientAdvisor(account, store, employee.name())
+                )
+            );
+    }
+
+    private Store findDevelopmentAdvisorStore(String storeName) {
+        return storeRepository.findAll().stream()
+            .filter(store -> storeName.equals(store.getName()))
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException(
+                "Cannot seed development CA: store not found: " + storeName
+            ));
     }
 
     private <T> List<T> readList(String location, TypeReference<List<T>> typeReference) throws IOException {

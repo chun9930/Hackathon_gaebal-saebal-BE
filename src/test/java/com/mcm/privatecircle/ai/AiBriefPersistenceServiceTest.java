@@ -51,6 +51,7 @@ class AiBriefPersistenceServiceTest {
         ClientAdvisor ca = mock(ClientAdvisor.class);
         AiBriefSource source = new AiBriefSource(
             new AiBriefSource.CustomerProfile("VIP", "black"),
+            null,
             java.util.List.of(),
             java.util.List.of(),
             java.util.List.of(),
@@ -77,6 +78,7 @@ class AiBriefPersistenceServiceTest {
         ClientAdvisor ca = mock(ClientAdvisor.class);
         AiBriefSource source = new AiBriefSource(
             new AiBriefSource.CustomerProfile("VIP", "black"),
+            null,
             java.util.List.of(),
             java.util.List.of(),
             java.util.List.of(),

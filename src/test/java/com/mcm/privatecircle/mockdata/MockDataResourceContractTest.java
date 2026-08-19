@@ -17,19 +17,27 @@ class MockDataResourceContractTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void storesResourceContainsNineteenEntries() throws Exception {
+    void storesResourceContainsRequiredDemoEntries() throws Exception {
         List<StoreMockResource> stores = objectMapper.readValue(
             new ClassPathResource("mock-data/stores.json").getInputStream(),
             new TypeReference<List<StoreMockResource>>() {
             }
         );
 
-        assertThat(stores).hasSize(19);
+        assertThat(stores).hasSize(21);
         assertThat(stores)
             .allSatisfy(store -> {
                 assertThat(store.name()).isNotBlank();
                 assertThat(store.location()).isNotBlank();
             });
+        assertThat(stores)
+            .extracting(StoreMockResource::name)
+            .contains(
+                "MCM HAUS",
+                "MCM 롯데백화점 잠실점",
+                "MCM 롯데백화점 본점",
+                "MCM 신라면세점 서울점"
+            );
     }
 
     @Test

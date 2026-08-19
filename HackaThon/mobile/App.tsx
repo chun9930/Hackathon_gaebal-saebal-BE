@@ -11,6 +11,7 @@ import {
   FlatList,
   Image,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -63,9 +64,9 @@ import { MOCK_CUSTOMERS } from "../src/mock/customers";
 import { RECOMMENDABLE_PRODUCTS } from "../src/mock/products";
 import { MOCK_BRIEFS } from "../src/mock/briefs";
 import type { Customer, JourneyStamp, ProductRecommendation, UserRole } from "../src/types";
-import type { CustomerProfileResponse } from "../src/api/contracts";
+import type { CustomerProfileResponse, CustomerSearchItem } from "../src/api/contracts";
 import { colors as c } from "./theme";
-import { authApi, caApi, customerApi, productApi, setAccessToken } from "./api";
+import { authApi, caApi, customerApi, employeeApi, getApiErrorMessage, productApi, setAccessToken } from "./api";
 
 type AuthScreen = "login" | "signup";
 type StoreName = keyof typeof STORE_STAMP_IMAGES;
@@ -84,12 +85,15 @@ type AppState = {
   toggleProduct: (id: string) => void;
   currentStore: StoreName;
   setCurrentStore: (store: StoreName) => void;
+  currentCaName: string;
+  setCurrentCaName: (name: string) => void;
   addStamp: (id: string, type: JourneyStamp["type"]) => void;
-  addConsultation: (id: string, note: ConsultationDraft) => void;
+  addConsultation: (id: string, note: ConsultationDraft, visitRecordId: number) => void;
   updateConsultation: (customerId: string, noteId: string, note: ConsultationDraft) => void;
   deleteConsultation: (customerId: string, noteId: string) => void;
   updateAvatar: (uri: string) => void;
   syncCustomerProfile: (profile: CustomerProfileResponse) => void;
+  syncCustomerStamps: (customerId: string, stamps: JourneyStamp[]) => void;
 };
 const Ctx = createContext<AppState | null>(null);
 const useApp = () => useContext(Ctx)!;
@@ -123,6 +127,37 @@ function toFrontendCustomer(profile: CustomerProfileResponse): Customer {
     savedProductIds: [],
   };
 }
+function toFrontendSearchCustomer(item: CustomerSearchItem): Customer {
+  return {
+    id: String(item.customerId),
+    name: item.name,
+    customerNo: item.customerNo,
+    qrToken: `demo-qr-${item.customerId}`,
+    phoneLast4: item.phoneNumber?.slice(-4) ?? "0000",
+    membershipTier: item.membershipGrade === "VIP" ? "VIP" : GENERAL_MEMBERSHIP_TIER,
+    points: 0,
+    preferredStyle: [],
+    purchasePurpose: "",
+    cautionNotes: undefined,
+    visitCount: 0,
+    joinedAt: item.joinedAt?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+    avatarUrl: item.profileImageUrl,
+    stamps: [],
+    purchases: [],
+    careRecords: [],
+    consultations: [],
+    savedProductIds: [],
+  };
+}
+function toFrontendJourneyStamp(stamp: import("../src/api/contracts").StampResponse): JourneyStamp {
+  return {
+    id: String(stamp.stampId),
+    storeName: normalizeStoreName(stamp.storeName),
+    type: stamp.stampType === "purchase" || stamp.stampType === "care" || stamp.stampType === "invite" ? stamp.stampType : "visit",
+    issuedAt: stamp.issuedAt,
+    issuedByCA: stamp.issuedByCaName,
+  };
+}
 const BRAND_LOGO = require("../logo.png");
 // 화면 헤더용: 원본 PNG에 들어 있던 큰 투명 테두리를 제거한 버전이다.
 // 따라서 로고의 보이는 왼쪽 끝을 본문 시작선에 정확히 맞출 수 있다.
@@ -151,10 +186,9 @@ const STORE_STAMP_IMAGES: Record<string, number> = {
   "MCM 제주 신라면세점": require("../stores/journey-stamp-jeju-shilla-duty-free.png"),
   "MCM 제주 롯데면세점": require("../stores/journey-stamp-jeju-lotte-duty-free.png"),
 };
-const STORE_NAMES = Object.keys(STORE_STAMP_IMAGES) as StoreName[];
-
 // 이전 데모 데이터와 새 지점명 사이의 연결표. 이미 저장된 고객 여정도 지점별 도장을 잃지 않는다.
 const LEGACY_STORE_NAMES: Record<string, StoreName> = {
+  "MCM HAUS": "MCM 하우스 플래그십스토어",
   "청담 플래그십 스토어": "MCM 하우스 플래그십스토어",
   "MCM 청담 플래그십": "MCM 하우스 플래그십스토어",
   "신세계 백화점 강남점": "MCM 신세계면세점 명동점",
@@ -162,12 +196,15 @@ const LEGACY_STORE_NAMES: Record<string, StoreName> = {
   "MCM 도쿄 긴자점": "MCM 롯데백화점 본점",
   "MCM 싱가포르 마리나베이": "MCM 제주 롯데면세점",
 };
+const normalizeStoreName = (storeName: string): string =>
+  LEGACY_STORE_NAMES[storeName] ?? storeName;
 const getStampAsset = (storeName: string) =>
   STORE_STAMP_IMAGES[storeName] ?? STORE_STAMP_IMAGES[LEGACY_STORE_NAMES[storeName]];
 const formatStoreName = (storeName: string) =>
   storeName === "MCM 하우스 플래그십스토어"
     ? "MCM 하우스\n플래그십스토어"
     : storeName.replace(" 롯데백화점 ", " 롯데백화점\n").replace(" 면세점 ", " 면세점\n");
+const isBackendCustomerId = (value: string) => /^\d+$/.test(value);
 
 // 가로 스크롤 행의 실제 렌더 너비를 측정해, 카드가 화면 밖으로 잘리지 않도록
 // 카드 폭을 그 너비에 맞춰 계산할 때 쓴다(도장 크기를 임의로 줄이지 않기 위함).
@@ -198,6 +235,7 @@ function Provider({ children }: { children: React.ReactNode }) {
   const [currentStore, setCurrentStore] = useState<StoreName>(
     "MCM 하우스 플래그십스토어",
   );
+  const [currentCaName, setCurrentCaName] = useState("이지원");
   useEffect(() => {
     AsyncStorage.getItem(storageKey)
       .then((v) => {
@@ -226,6 +264,17 @@ function Provider({ children }: { children: React.ReactNode }) {
       })
       .catch(() => undefined);
   }, []);
+  useEffect(() => {
+    if (role !== "ca" || !isLoggedIn) return;
+    customerApi.search("MCM", 0, 50)
+      .then((page) => {
+        const items = page.items.map(toFrontendSearchCustomer);
+        if (!items.length) return;
+        setCustomers(items);
+        select(items[0].id);
+      })
+      .catch(() => undefined);
+  }, [role, isLoggedIn]);
   useEffect(() => {
     AsyncStorage.setItem(storageKey, JSON.stringify(customers));
   }, [customers]);
@@ -257,6 +306,19 @@ function Provider({ children }: { children: React.ReactNode }) {
     });
     select(nextCustomer.id);
   };
+  const syncCustomerStamps = (customerId: string, stamps: JourneyStamp[]) => {
+    setCustomers((all) =>
+      all.map((customer) =>
+        customer.id !== customerId
+          ? customer
+          : {
+              ...customer,
+              stamps: [...stamps].sort((a, b) => b.issuedAt.localeCompare(a.issuedAt)),
+              visitCount: Math.max(customer.visitCount, stamps.filter((stamp) => stamp.type === "visit").length),
+            },
+      ),
+    );
+  };
   const value = useMemo(
     () => ({
       role,
@@ -271,6 +333,8 @@ function Provider({ children }: { children: React.ReactNode }) {
       select,
       currentStore,
       setCurrentStore,
+      currentCaName,
+      setCurrentCaName,
       toggleProduct: (id: string) =>
         setCustomers((all) =>
           all.map((x) =>
@@ -298,14 +362,14 @@ function Provider({ children }: { children: React.ReactNode }) {
                       type,
                       storeName: currentStore,
                       issuedAt: new Date().toISOString(),
-                      issuedByCA: "이현우 CA",
+                      issuedByCA: `${currentCaName} CA`,
                     },
                     ...x.stamps,
                   ],
                 },
           ),
         ),
-      addConsultation: (id: string, note: ConsultationDraft) =>
+      addConsultation: (id: string, note: ConsultationDraft, visitRecordId: number) =>
         setCustomers((all) =>
           all.map((x) =>
             x.id !== id
@@ -313,7 +377,7 @@ function Provider({ children }: { children: React.ReactNode }) {
               : {
                   ...x,
                   consultations: [
-                    { ...note, id: `consultation-${Date.now()}`, createdAt: new Date().toISOString() },
+                    { ...note, id: String(visitRecordId), createdAt: new Date().toISOString() },
                     ...x.consultations,
                   ],
                 },
@@ -345,8 +409,9 @@ function Provider({ children }: { children: React.ReactNode }) {
           all.map((x) => (x.id === selected ? { ...x, avatarUrl: uri } : x)),
         ),
       syncCustomerProfile,
+      syncCustomerStamps,
     }),
-    [role, isLoggedIn, authScreen, customers, selected, currentStore, products],
+    [role, isLoggedIn, authScreen, customers, selected, currentStore, currentCaName, products],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
@@ -408,11 +473,13 @@ function Button({
   onPress,
   secondary = false,
   icon,
+  disabled = false,
 }: {
   children: React.ReactNode;
   onPress: () => void;
   secondary?: boolean;
   icon?: React.ReactNode;
+  disabled?: boolean;
 }) {
   const scale = useSharedValue(1);
   const iconShift = useSharedValue(0);
@@ -421,6 +488,7 @@ function Button({
   return (
     <AnimatedPressable
       onPress={onPress}
+      disabled={disabled}
       onPressIn={() => {
         scale.value = withTiming(0.97, { duration: 140, easing: Easing.out(Easing.quad) });
         iconShift.value = withTiming(3, { duration: 220, easing: Easing.out(Easing.quad) });
@@ -429,7 +497,7 @@ function Button({
         scale.value = withTiming(1, { duration: 260, easing: Easing.out(Easing.quad) });
         iconShift.value = withTiming(0, { duration: 260, easing: Easing.out(Easing.quad) });
       }}
-      style={[s.button, secondary && s.buttonSecondary, pressStyle]}
+      style={[s.button, secondary && s.buttonSecondary, disabled && { opacity: 0.55 }, pressStyle]}
     >
       <View style={s.buttonContent}>
         {icon && <Animated.View style={iconStyle}>{icon}</Animated.View>}
@@ -475,7 +543,7 @@ function Header({
   logoOnly?: boolean;
 }) {
   const n = useNavigation<any>();
-  const { logout, currentStore } = useApp();
+  const { logout, currentStore, currentCaName } = useApp();
   const { isTablet } = useResponsive();
   return (
     <View style={[s.header, logoOnly && !isTablet && s.headerHome]}>
@@ -494,7 +562,7 @@ function Header({
         <>
           {back && <View style={{ flex: 1 }}><Text style={s.headerTitle}>{title}</Text></View>}
           <View style={s.caHeaderIdentity}>
-            <View><Text style={s.caHeaderName}>CA 이지원</Text><Text style={s.caHeaderStore}>{currentStore.replace("MCM ", "")}</Text></View>
+            <View><Text style={s.caHeaderName}>CA {currentCaName}</Text><Text style={s.caHeaderStore}>{currentStore.replace("MCM ", "")}</Text></View>
             {!back && <Pressable accessibilityLabel="로그아웃" onPress={logout} style={s.caHeaderLogout}><LogOut color={c.ink} size={14} /></Pressable>}
           </View>
         </>
@@ -555,7 +623,7 @@ function Screen({
 }
 
 function Login() {
-  const { setRole, setAuthScreen, syncCustomerProfile } = useApp();
+  const { setRole, setAuthScreen, setCurrentStore, setCurrentCaName, syncCustomerProfile, syncCustomerStamps } = useApp();
   const { isTablet, horizontalPadding } = useResponsive();
   const [role, choose] = useState<UserRole>("customer");
   const [identifier, setIdentifier] = useState("");
@@ -573,8 +641,16 @@ function Login() {
         await authApi.customerLogin(identifier.trim(), password);
         const profile = await customerApi.me();
         syncCustomerProfile(profile);
+        const stamps = await customerApi.stamps();
+        syncCustomerStamps(
+          String(profile.customerId),
+          stamps.items.map(toFrontendJourneyStamp),
+        );
       } else {
         await authApi.employeeLogin(identifier.trim(), password);
+        const profile = await employeeApi.me();
+        setCurrentStore(normalizeStoreName(profile.storeName) as StoreName);
+        setCurrentCaName(profile.name);
       }
       setRole(role);
     } catch {
@@ -690,7 +766,7 @@ function Login() {
   );
 }
 function SignUp() {
-  const { setAuthScreen, setRole, syncCustomerProfile } = useApp();
+  const { setAuthScreen, setRole, syncCustomerProfile, syncCustomerStamps } = useApp();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -699,7 +775,7 @@ function SignUp() {
   const submit = async () => {
     if (submitting) return;
     if (!name.trim() || !email.trim() || !phone.trim() || !password.trim()) {
-      Alert.alert("확인 필요", "이름, 이메일, 휴대폰 번호, 비밀번호를 모두 입력해 주세요.");
+      Alert.alert("확인 필요", "이름, 아이디, 휴대폰 번호, 비밀번호를 모두 입력해 주세요.");
       return;
     }
     const digitsOnlyPhone = phone.replace(/\D/g, "");
@@ -717,6 +793,11 @@ function SignUp() {
       });
       const profile = await customerApi.me();
       syncCustomerProfile(profile);
+      const stamps = await customerApi.stamps();
+      syncCustomerStamps(
+        String(profile.customerId),
+        stamps.items.map(toFrontendJourneyStamp),
+      );
       setRole("customer");
     } catch {
       Alert.alert("회원가입 실패", "입력하신 정보를 확인한 뒤 다시 시도해 주세요.");
@@ -753,15 +834,14 @@ function SignUp() {
               placeholder="이름을 입력하세요"
               placeholderTextColor={c.muted}
             />
-            <Text style={s.label}>이메일</Text>
+            <Text style={s.label}>아이디</Text>
             <TextInput
               style={s.textInput}
               value={email}
               onChangeText={setEmail}
-              placeholder="example@email.com"
+              placeholder="가입할 아이디를 입력하세요"
               placeholderTextColor={c.muted}
               autoCapitalize="none"
-              keyboardType="email-address"
             />
             <Text style={s.label}>휴대폰 번호</Text>
             <TextInput
@@ -1307,22 +1387,9 @@ function Saved() {
 }
 
 function CaHome() {
-  const { customers, select, currentStore, setCurrentStore } =
-    useApp();
+  const { customers, select, currentStore } = useApp();
   const n = useNavigation<any>();
   const { isTablet } = useResponsive();
-  const [storeRowWidth, onStoreRowLayout] = useMeasuredWidth();
-  const storeGap = 10;
-  const storeMinItemWidth = 96;
-  // 매장이 13곳이 넘어 계속 가로 스크롤이 필요하지만, 한 화면에 보이는 카드는
-  // 항상 온전한 개수만 잘리지 않고 보이도록 실측 너비에서 카드 폭을 역산한다.
-  const storeVisibleCount = storeRowWidth
-    ? Math.max(2, Math.floor((storeRowWidth + storeGap) / (storeMinItemWidth + storeGap)))
-    : 3;
-  const storeItemWidth = storeRowWidth
-    ? (storeRowWidth - storeGap * (storeVisibleCount - 1)) / storeVisibleCount
-    : 110;
-  const storeIconSize = Math.round(storeItemWidth * (60 / 110));
   const clientList = (
     <>
       <SectionTitle title="최근 고객" />
@@ -1368,31 +1435,13 @@ function CaHome() {
       <Card>
         <Text style={s.kicker}>CURRENT STORE</Text>
         <Text style={s.cardTitle}>현재 근무 지점</Text>
-        <Text style={s.body}>선택한 지점의 고유 도장이 고객 여권에 발급됩니다.</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          onLayout={onStoreRowLayout}
-          snapToInterval={storeItemWidth + storeGap}
-          decelerationRate="fast"
-          contentContainerStyle={[s.storePicker, { gap: storeGap }]}
-        >
-          {STORE_NAMES.map((store) => {
-            const selectedStore = store === currentStore;
-            return (
-              <Pressable
-                key={store}
-                onPress={() => setCurrentStore(store)}
-                style={[s.storeOption, selectedStore && s.storeOptionActive, { width: storeItemWidth }]}
-              >
-                <StoreStampImage storeName={store} size={storeIconSize} />
-                <Text numberOfLines={1} ellipsizeMode="tail" style={[s.storeOptionText, selectedStore && s.storeOptionTextActive]}>
-                  {store.replace("MCM ", "")}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <Text style={s.body}>로그인한 CA의 소속 지점 도장이 고객 여권에 발급됩니다.</Text>
+        <View style={[s.storeOption, s.storeOptionActive, { width: 150 }]}>
+          <StoreStampImage storeName={currentStore} size={82} />
+          <Text numberOfLines={2} style={[s.storeOptionText, s.storeOptionTextActive]}>
+            {currentStore.replace("MCM ", "")}
+          </Text>
+        </View>
       </Card>
       <Card>
         <Text style={s.kicker}>TODAY AT A GLANCE</Text>
@@ -1583,18 +1632,48 @@ function ConsultationDetail({ route }: { route: any }) {
     setCautionUpdate(note.cautionUpdate ?? "");
   }, [note?.id]);
   if (!note) return <Screen title="상담 기록" back caHeader><Card><Text style={s.body}>상담 기록을 찾을 수 없습니다.</Text></Card></Screen>;
-  const save = () => {
-    updateConsultation(customer.id, note.id, {
+  const save = async () => {
+    const draft = {
       caName: note.caName,
-      storeName: note.storeName,
+      storeName: note.storeName ?? "국내 MCM 매장",
       visitPurpose: purpose.trim() || "상담 방문",
       content: content.trim() || "상담 내용이 입력되지 않았습니다.",
       styleChange: styleChange.trim(),
       cautionUpdate: cautionUpdate.trim(),
       consentConfirmed: note.consentConfirmed,
-    });
-    setEditing(false);
-    Alert.alert("수정 완료", "상담 기록을 저장했습니다.");
+    };
+    try {
+      await caApi.updateConsultation(customer.id, note.id, note.createdAt, draft);
+      updateConsultation(customer.id, note.id, draft);
+      setEditing(false);
+      Alert.alert("수정 완료", "상담 기록을 저장했습니다.");
+    } catch (error) {
+      Alert.alert("수정 실패", getApiErrorMessage(error));
+    }
+  };
+  const remove = () => {
+    const deleteRecord = async () => {
+      try {
+        await caApi.deleteConsultation(customer.id, note.id, note.createdAt);
+        deleteConsultation(customer.id, note.id);
+        n.goBack();
+      } catch (error) {
+        Alert.alert("삭제 실패", getApiErrorMessage(error));
+      }
+    };
+    if (Platform.OS === "web") {
+      const confirm = (globalThis as typeof globalThis & {
+        confirm?: (message: string) => boolean;
+      }).confirm;
+      if (confirm?.("삭제한 상담 기록은 되돌릴 수 없습니다. 삭제할까요?")) {
+        void deleteRecord();
+      }
+      return;
+    }
+    Alert.alert("상담 기록 삭제", "삭제한 기록은 되돌릴 수 없습니다.", [
+      { text: "취소", style: "cancel" },
+      { text: "삭제", style: "destructive", onPress: deleteRecord },
+    ]);
   };
   return (
     <Screen title="상담 기록" back caHeader>
@@ -1611,7 +1690,7 @@ function ConsultationDetail({ route }: { route: any }) {
       </Card>
       <View style={s.detailActions}>
         {editing ? <Button onPress={save}>수정 저장</Button> : <Button secondary onPress={() => setEditing(true)}>수정</Button>}
-        <Button secondary onPress={() => Alert.alert("상담 기록 삭제", "삭제한 기록은 되돌릴 수 없습니다.", [{ text: "취소", style: "cancel" }, { text: "삭제", style: "destructive", onPress: () => { deleteConsultation(customer.id, note.id); n.goBack(); } }])}>삭제</Button>
+        <Button secondary onPress={remove}>삭제</Button>
       </View>
     </Screen>
   );
@@ -1619,11 +1698,19 @@ function ConsultationDetail({ route }: { route: any }) {
 function Brief() {
   const { customer } = useApp();
   const [brief, setBrief] = useState(MOCK_BRIEFS[customer.id]);
-  const suggestions = [
-    "최근 상담 맥락부터 자연스럽게 이어간다.",
-    "재방문 시 선호 색상과 관심 제품 재고를 먼저 확인한다.",
-    "비교 시간은 충분히 두고, 고객의 질문 후 제품을 제안한다.",
-  ];
+  const [generating, setGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  useEffect(() => {
+    setBrief(MOCK_BRIEFS[customer.id]);
+    setGenerationError(null);
+  }, [customer.id]);
+  const suggestions = brief?.mode === "LIVE AI"
+    ? [brief.suggestedApproach]
+    : [
+        "AI 브리프를 생성하면 실제 기록을 바탕으로 응대 방향을 제안합니다.",
+        "재방문 시 선호 색상과 관심 제품을 먼저 확인합니다.",
+        "고객의 질문과 반응을 확인한 뒤 제품을 제안합니다.",
+      ];
   return (
     <Screen title="AI 응대 브리프" back caHeader>
       <View style={s.briefHeading}>
@@ -1632,8 +1719,8 @@ function Brief() {
         <Text style={s.body}>{customer.name} 님 · {customer.stamps[0]?.storeName ?? "국내 MCM 매장"} · 실제 여정 기록 기반</Text>
       </View>
       <View style={s.briefHero}>
-        <View style={s.row}><View style={s.briefIcon}><SoundWaveIcon color={c.ink} size={30} /></View><View style={{ flex: 1 }}><Text style={s.passportName}>상담 맥락 요약</Text><Text style={s.darkBody}>데모 데이터 기반 생성</Text></View><Pill tone="forest">DEMO AI</Pill></View>
-        <Text style={s.briefSummary}>{brief?.summary ?? "고객의 최근 여정을 분석하는 중입니다."}</Text>
+        <View style={s.row}><View style={s.briefIcon}><SoundWaveIcon color={c.ink} size={30} /></View><View style={{ flex: 1 }}><Text style={s.passportName}>상담 맥락 요약</Text><Text style={s.darkBody}>{brief?.mode === "LIVE AI" ? "실제 여정 기록 기반 생성" : "브리프 생성 전"}</Text></View><Pill tone="forest">{brief?.mode === "LIVE AI" ? "LIVE AI" : "READY"}</Pill></View>
+        <Text style={s.briefSummary}>{generating ? "최신 여정 기록을 분석하고 있습니다." : brief?.summary ?? "아래 버튼을 눌러 AI 브리프를 생성해 주세요."}</Text>
       </View>
       <Card>
         <View style={s.row}><SoundWaveIcon color={c.gold} size={24} /><Text style={s.sectionTitle}>응대 제안</Text></View>
@@ -1648,15 +1735,29 @@ function Brief() {
         <Text style={s.body}>{brief?.cautions[0] ?? "고객의 반응을 먼저 확인해 주세요."}</Text>
       </View>
       <View style={s.aiDisclosure}><Text style={s.aiDisclosureText}>AI는 고객과 직접 대화하지 않습니다. 이 브리프는 실제 기록을 요약한 참고 정보이며 최종 응대 방식은 CA가 결정합니다.</Text></View>
-      <Button secondary onPress={async () => {
-        try {
-          const response = await caApi.regenerateCustomerInsights(customer.id);
-          setBrief(response.brief);
-          Alert.alert("AI 브리프 갱신 완료", "최신 상담 기록과 이전 여정을 반영했습니다.");
-        } catch {
-          Alert.alert("갱신 실패", "네트워크를 확인한 뒤 다시 시도해 주세요.");
-        }
-      }}>최신 기록으로 다시 생성</Button>
+      {generationError && <View style={s.aiDisclosure}><Text style={s.aiDisclosureText}>{generationError}</Text></View>}
+      {isBackendCustomerId(customer.id) ? (
+        <Button secondary disabled={generating} onPress={async () => {
+          if (generating) return;
+          setGenerating(true);
+          setGenerationError(null);
+          try {
+            const response = await caApi.regenerateCustomerInsights(customer.id);
+            setBrief(response.brief);
+            Alert.alert("AI 브리프 갱신 완료", "최신 상담 기록과 이전 여정을 반영했습니다.");
+          } catch (error) {
+            const message = getApiErrorMessage(error);
+            setGenerationError(`AI 브리프 생성 실패: ${message}`);
+            Alert.alert("갱신 실패", message);
+          } finally {
+            setGenerating(false);
+          }
+        }}>{generating ? "AI 브리프 생성 중..." : "최신 기록으로 다시 생성"}</Button>
+      ) : (
+        <View style={s.aiDisclosure}>
+          <Text style={s.aiDisclosureText}>데모 고객은 AI 브리프 생성 버튼을 숨겼습니다. 실제 고객을 선택하면 생성 버튼이 표시됩니다.</Text>
+        </View>
+      )}
     </Screen>
   );
 }
@@ -1674,7 +1775,7 @@ function CaRecommendations() {
 function Consultation() {
   const n = useNavigation<any>();
   const { isTablet } = useResponsive();
-  const { customer, currentStore, addConsultation } = useApp();
+  const { customer, currentStore, currentCaName, addConsultation } = useApp();
   const [purpose, setPurpose] = useState("");
   const [memo, setMemo] = useState("");
   const [products, setProducts] = useState("");
@@ -1701,7 +1802,7 @@ function Consultation() {
         onPress={async () => {
           if (!consented) { Alert.alert("확인 필요", "입력 내용 검토에 동의해 주세요."); return; }
           const draft = {
-            caName: "이지원 CA",
+            caName: `${currentCaName} CA`,
             storeName: currentStore,
             visitPurpose: purpose || "상담 방문",
             content: memo || "상담 내용이 입력되지 않았습니다.",
@@ -1710,8 +1811,8 @@ function Consultation() {
             consentConfirmed: true,
           };
           try {
-            await caApi.createConsultation(customer.id, draft);
-            addConsultation(customer.id, draft);
+            const saved = await caApi.createConsultation(customer.id, draft);
+            addConsultation(customer.id, draft, saved.visitRecordId);
             Alert.alert("저장 완료", "상담 기록이 고객 이력에 저장되었습니다.");
             n.goBack();
           } catch {
@@ -1725,7 +1826,7 @@ function Consultation() {
   );
 }
 function IssueStamp() {
-  const { customer, addStamp, currentStore } = useApp();
+  const { customer, addStamp, currentStore, currentCaName } = useApp();
   const n = useNavigation<any>();
   const { isTablet } = useResponsive();
   const [verified, setVerified] = useState(false);
@@ -1734,10 +1835,10 @@ function IssueStamp() {
       <View style={s.issueHeading}><Text style={s.kicker}>JOURNEY STAMP</Text><Text style={s.pageTitle}>방문 스탬프 발급</Text><Text style={s.body}>{isTablet ? "고객, 매장, 담당 CA와 발급 일시가 실제 방문과 일치하는지 확인합니다." : "고객, 매장, 담당 CA와 발급 일시가 실제 방문과 일치하는지 확인"}</Text></View>
       <View style={[s.issueDetailColumns, !isTablet && s.issueDetailColumnsMobile]}>
         <View style={s.issueVisual}><StoreStampImage storeName={currentStore} size={160} lightPlate /><Text style={s.issueVisualStore}>{currentStore}</Text><Text style={s.issueVisualCaption}>OFFICIAL JOURNEY STAMP</Text></View>
-        <View style={s.issueInfoColumn}><View style={[s.card, s.issueInfoCard]}><Text style={[s.label, s.issueInfoLabel]}>발급 대상 고객</Text><Text style={[s.cardTitle, s.issueInfoTitle]}>{customer.name} · {customer.membershipTier === "VIP" ? "VIP 고객" : "일반 고객"}</Text><View style={s.issueDetailLine}><MapPin size={16} color={c.gold} /><View><Text style={[s.caption, s.issueInfoCaption]}>방문 매장</Text><Text style={[s.cardTitle, s.issueInfoTitle]}>{currentStore}</Text></View></View><View style={s.issueDetailLine}><View><Text style={[s.caption, s.issueInfoCaption]}>담당 CA</Text><Text style={[s.cardTitle, s.issueInfoTitle]}>이현우 어드바이저</Text></View></View><View><Text style={[s.caption, s.issueInfoCaption]}>발급 일시</Text><Text style={[s.cardTitle, s.issueInfoTitle]}>{new Date().toLocaleString("ko-KR")}</Text></View></View></View>
+        <View style={s.issueInfoColumn}><View style={[s.card, s.issueInfoCard]}><Text style={[s.label, s.issueInfoLabel]}>발급 대상 고객</Text><Text style={[s.cardTitle, s.issueInfoTitle]}>{customer.name} · {customer.membershipTier === "VIP" ? "VIP 고객" : "일반 고객"}</Text><View style={s.issueDetailLine}><MapPin size={16} color={c.gold} /><View><Text style={[s.caption, s.issueInfoCaption]}>방문 매장</Text><Text style={[s.cardTitle, s.issueInfoTitle]}>{currentStore}</Text></View></View><View style={s.issueDetailLine}><View><Text style={[s.caption, s.issueInfoCaption]}>담당 CA</Text><Text style={[s.cardTitle, s.issueInfoTitle]}>{currentCaName} 어드바이저</Text></View></View><View><Text style={[s.caption, s.issueInfoCaption]}>발급 일시</Text><Text style={[s.cardTitle, s.issueInfoTitle]}>{new Date().toLocaleString("ko-KR")}</Text></View></View></View>
       </View>
       <View style={[s.issueActions, !isTablet && s.issueActionsMobile]}>
-        <View style={[s.issueAction, s.issueVisualAction]}><Button onPress={async () => { if (!verified) { setVerified(true); return; } try { await caApi.issueVisitStamp(customer.id); addStamp(customer.id, "visit"); n.navigate("StampSuccess"); } catch { Alert.alert("발급 실패", "네트워크를 확인한 뒤 다시 시도해 주세요."); } }} icon={<Stamp color={c.paper} size={22} />}>{verified ? "방문 스탬프 발급" : "중복 발급 여부 확인"}</Button></View>
+        <View style={[s.issueAction, s.issueVisualAction]}><Button onPress={async () => { if (!verified) { setVerified(true); return; } try { await caApi.issueVisitStamp(customer.id); addStamp(customer.id, "visit"); n.navigate("StampSuccess"); } catch (error) { Alert.alert("발급 실패", getApiErrorMessage(error)); } }} icon={<Stamp color={c.paper} size={22} />}>{verified ? "방문 스탬프 발급" : "중복 발급 여부 확인"}</Button></View>
         <View style={[s.issueAction, s.issueInfoAction]}><Button secondary onPress={() => n.goBack()}>취소</Button></View>
       </View>
     </Screen>

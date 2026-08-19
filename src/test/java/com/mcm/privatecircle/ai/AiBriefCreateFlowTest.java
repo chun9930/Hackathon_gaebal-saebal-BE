@@ -11,6 +11,8 @@ import static org.mockito.Mockito.when;
 import java.time.LocalDateTime;
 
 import com.mcm.privatecircle.ai.client.AiClientException;
+import com.mcm.privatecircle.ai.client.AiClientAuthenticationException;
+import com.mcm.privatecircle.ai.client.AiClientConfigurationException;
 import com.mcm.privatecircle.ai.client.AiClientTimeoutException;
 import com.mcm.privatecircle.ai.client.AiResponseParseException;
 import com.mcm.privatecircle.ai.client.GeminiBriefClient;
@@ -73,6 +75,7 @@ class AiBriefCreateFlowTest {
         AiBriefCreateRequest request = new AiBriefCreateRequest(30L);
         AiBriefSource source = new AiBriefSource(
             new AiBriefSource.CustomerProfile("VIP", "black"),
+            null,
             java.util.List.of(),
             java.util.List.of(),
             java.util.List.of(),
@@ -121,6 +124,7 @@ class AiBriefCreateFlowTest {
         AiBriefCreateRequest request = new AiBriefCreateRequest(30L);
         AiBriefSource source = new AiBriefSource(
             new AiBriefSource.CustomerProfile("VIP", "black"),
+            null,
             java.util.List.of(),
             java.util.List.of(),
             java.util.List.of(),
@@ -137,11 +141,43 @@ class AiBriefCreateFlowTest {
     }
 
     @Test
+    void createMapsMissingApiKeyToServiceUnavailable() {
+        AuthenticatedUser user = AuthenticatedUser.ca(1L, 2L, 3L);
+        AiBriefCreateRequest request = new AiBriefCreateRequest(30L);
+        AiBriefSource source = emptySource();
+        when(sourceReader.read(user, 20L, 30L)).thenReturn(source);
+        when(geminiBriefClient.generate(source)).thenThrow(new AiClientConfigurationException("missing"));
+
+        assertThatThrownBy(() -> service.create(user, 20L, request))
+            .isInstanceOf(BusinessException.class)
+            .extracting("errorCode")
+            .isEqualTo(ErrorCode.AI_BRIEF_API_KEY_MISSING);
+        verify(persistenceService).saveFailed(eq(user), eq(20L), eq(30L), eq(source), eq(ErrorCode.AI_BRIEF_API_KEY_MISSING));
+    }
+
+    @Test
+    void createMapsGemini401ToAuthFailed() {
+        AuthenticatedUser user = AuthenticatedUser.ca(1L, 2L, 3L);
+        AiBriefCreateRequest request = new AiBriefCreateRequest(30L);
+        AiBriefSource source = emptySource();
+        when(sourceReader.read(user, 20L, 30L)).thenReturn(source);
+        when(geminiBriefClient.generate(source))
+            .thenThrow(new AiClientAuthenticationException("unauthenticated", new RuntimeException()));
+
+        assertThatThrownBy(() -> service.create(user, 20L, request))
+            .isInstanceOf(BusinessException.class)
+            .extracting("errorCode")
+            .isEqualTo(ErrorCode.AI_BRIEF_AUTH_FAILED);
+        verify(persistenceService).saveFailed(eq(user), eq(20L), eq(30L), eq(source), eq(ErrorCode.AI_BRIEF_AUTH_FAILED));
+    }
+
+    @Test
     void createSavesFailedAndThrowsTimeoutOnAiTimeout() {
         AuthenticatedUser user = AuthenticatedUser.ca(1L, 2L, 3L);
         AiBriefCreateRequest request = new AiBriefCreateRequest(30L);
         AiBriefSource source = new AiBriefSource(
             new AiBriefSource.CustomerProfile("VIP", "black"),
+            null,
             java.util.List.of(),
             java.util.List.of(),
             java.util.List.of(),
@@ -163,6 +199,7 @@ class AiBriefCreateFlowTest {
         AiBriefCreateRequest request = new AiBriefCreateRequest(30L);
         AiBriefSource source = new AiBriefSource(
             new AiBriefSource.CustomerProfile("VIP", "black"),
+            null,
             java.util.List.of(),
             java.util.List.of(),
             java.util.List.of(),
@@ -176,5 +213,16 @@ class AiBriefCreateFlowTest {
             .extracting("errorCode")
             .isEqualTo(ErrorCode.AI_RESPONSE_PARSE_FAILED);
         verify(persistenceService).saveFailed(eq(user), eq(20L), eq(30L), eq(source), eq(ErrorCode.AI_RESPONSE_PARSE_FAILED));
+    }
+
+    private AiBriefSource emptySource() {
+        return new AiBriefSource(
+            new AiBriefSource.CustomerProfile("VIP", "black"),
+            null,
+            java.util.List.of(),
+            java.util.List.of(),
+            java.util.List.of(),
+            0
+        );
     }
 }

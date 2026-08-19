@@ -596,6 +596,7 @@ CA는 자기 매장 기준으로 방문/고객 기록을 생성한다. 다른 �
 | POST | `/api/v1/visits/{visitId}/records` | CA | 방문 기록 생성 |
 | GET | `/api/v1/visits/{visitId}/records` | CA | 방문 기록 조회 |
 | PATCH | `/api/v1/visit-records/{recordId}` | CA | 방문 기록 수정 |
+| DELETE | `/api/v1/visit-records/{recordId}` | CA | 본인이 작성한 방문 기록 삭제 |
 
 방문 기록 생성 요청:
 

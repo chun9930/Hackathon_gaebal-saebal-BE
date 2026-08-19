@@ -178,6 +178,41 @@ class VisitRecordServiceIntegrationTest {
     }
 
     @Test
+    void 최초_작성_CA는_상담_기록을_삭제할_수_있다() {
+        Visit visit = saveVisit(store);
+        var created = visitRecordService.createVisitRecord(
+            authorUser,
+            visit.getId(),
+            new VisitRecordCreateRequest("목적", "삭제할 내용", null, null)
+        );
+
+        visitRecordService.deleteVisitRecord(authorUser, created.visitRecordId());
+
+        assertThat(visitRecordRepository.findById(created.visitRecordId())).isEmpty();
+    }
+
+    @Test
+    void 최초_작성자가_아닌_CA는_상담_기록을_삭제할_수_없다() {
+        Visit visit = saveVisit(store);
+        var created = visitRecordService.createVisitRecord(
+            authorUser,
+            visit.getId(),
+            new VisitRecordCreateRequest("목적", "보존할 내용", null, null)
+        );
+        AuthenticatedUser colleagueUser = AuthenticatedUser.ca(
+            colleague.getEmployeeAccount().getId(),
+            colleague.getId(),
+            store.getId()
+        );
+
+        assertThatThrownBy(() -> visitRecordService.deleteVisitRecord(colleagueUser, created.visitRecordId()))
+            .isInstanceOf(BusinessException.class)
+            .extracting("errorCode")
+            .isEqualTo(ErrorCode.FORBIDDEN_CA);
+        assertThat(visitRecordRepository.findById(created.visitRecordId())).isPresent();
+    }
+
+    @Test
     void 타_매장_방문에는_기록을_생성할_수_없다() {
         Visit otherVisit = saveVisit(otherStore);
 

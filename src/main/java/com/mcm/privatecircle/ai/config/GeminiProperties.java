@@ -11,7 +11,7 @@ import jakarta.validation.constraints.NotNull;
 @Validated
 @ConfigurationProperties(prefix = "app.ai.gemini")
 public record GeminiProperties(
-    @NotBlank String apiKey,
+    String apiKey,
     @NotBlank String model,
     @NotNull Duration timeout
 ) {

@@ -50,4 +50,11 @@ class VisitRecordControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().getData()).isEqualTo(result);
     }
+
+    @Test
+    void deleteVisitRecordReturns200() {
+        var response = controller.deleteVisitRecord(caUser, 10L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
 }

@@ -14,6 +14,7 @@ class AiBriefSourceContractTest {
         assertRecordComponents(
             "com.mcm.privatecircle.ai.dto.AiBriefSource",
             "customer",
+            "currentVisitRecord",
             "visitRecords",
             "interestProducts",
             "purchases",

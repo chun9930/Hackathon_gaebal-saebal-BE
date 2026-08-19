@@ -10,6 +10,15 @@ export type AuthTokens = {
   storeId?: number;
   role: string;
 };
+export type EmployeeProfileResponse = {
+  caId: number;
+  storeId: number;
+  storeName: string;
+  name: string;
+  accountId: number;
+  loginId: string;
+  createdAt: string;
+};
 export type CustomerProfileResponse = {
   customerId: number;
   customerNo: string;

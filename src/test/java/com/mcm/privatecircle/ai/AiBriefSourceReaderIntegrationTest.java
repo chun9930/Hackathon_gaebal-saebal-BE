@@ -121,6 +121,13 @@ class AiBriefSourceReaderIntegrationTest {
     @Test
     void readBuildsSourceFromPastCurrentStoreDataOnly() {
         Visit targetVisit = saveVisit(customer, store, LocalDateTime.of(2026, 8, 17, 12, 0));
+        VisitRecord currentRecord = saveRecordForVisit(
+            targetVisit,
+            customer,
+            author,
+            "current consult",
+            "current consultation content"
+        );
 
         VisitRecord oldest = saveRecord(
             customer,
@@ -281,6 +288,10 @@ class AiBriefSourceReaderIntegrationTest {
 
         assertThat(source.customer().membershipGrade()).isEqualTo("VIP");
         assertThat(source.customer().stylePreferences()).isEqualTo("toned black");
+        assertThat(source.currentVisitRecord())
+            .isNotNull()
+            .extracting(AiBriefSource.VisitRecordSource::visitPurpose)
+            .isEqualTo("current consult");
         assertThat(source.visitRecords())
             .extracting(AiBriefSource.VisitRecordSource::visitPurpose)
             .containsExactly("latest consult", "revisit", "watch consult", "shoes consult", "bag consult");
@@ -294,6 +305,7 @@ class AiBriefSourceReaderIntegrationTest {
         assertThat(oldest.getVisitPurpose()).isNotIn(
             source.visitRecords().stream().map(AiBriefSource.VisitRecordSource::visitPurpose).toList()
         );
+        assertThat(currentRecord.getVisitPurpose()).isEqualTo("current consult");
     }
 
     @Test
@@ -368,6 +380,24 @@ class AiBriefSourceReaderIntegrationTest {
         String content
     ) {
         Visit visit = saveVisit(recordCustomer, recordStore, visitedAt);
+        return visitRecordRepository.save(new VisitRecord(
+            visit,
+            recordCustomer,
+            ca,
+            visitPurpose,
+            content,
+            "style note",
+            "caution note"
+        ));
+    }
+
+    private VisitRecord saveRecordForVisit(
+        Visit visit,
+        Customer recordCustomer,
+        ClientAdvisor ca,
+        String visitPurpose,
+        String content
+    ) {
         return visitRecordRepository.save(new VisitRecord(
             visit,
             recordCustomer,
