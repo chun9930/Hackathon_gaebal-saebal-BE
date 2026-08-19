@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "MCM Private Circle",
+    "slug": "mcm-private-circle",
+    "version": "1.0.0",
+    "orientation": "default",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.mcm.privatecircle"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "프로필 사진을 설정하기 위해 사진 보관함 접근이 필요합니다."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "고객 Journey Passport QR 확인을 위해 카메라 접근이 필요합니다."
+        }
+      ]
+    ]
+  }
+}

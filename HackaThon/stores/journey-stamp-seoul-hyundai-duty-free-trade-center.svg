@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <path id="topArc" d="M 136 512 A 376 376 0 0 1 888 512" fill="none"/>
+    <path id="bottomArc" d="M 136 512 A 376 376 0 0 0 888 512" fill="none"/>
+  </defs>
+  <g fill="none" stroke="#8B1C35" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="512" cy="512" r="468" stroke-width="18"/>
+    <circle cx="512" cy="512" r="437" stroke-width="7"/>
+    <circle cx="512" cy="512" r="390" stroke-width="8"/>
+  </g>
+  <g fill="#8B1C35"><circle cx="868.00" cy="512.00" r="5"/><circle cx="866.65" cy="543.03" r="5"/><circle cx="862.59" cy="573.82" r="5"/><circle cx="855.87" cy="604.14" r="5"/><circle cx="846.53" cy="633.76" r="5"/><circle cx="834.65" cy="662.45" r="5"/><circle cx="820.31" cy="690.00" r="5"/><circle cx="803.62" cy="716.19" r="5"/><circle cx="784.71" cy="740.83" r="5"/><circle cx="763.73" cy="763.73" r="5"/><circle cx="740.83" cy="784.71" r="5"/><circle cx="716.19" cy="803.62" r="5"/><circle cx="690.00" cy="820.31" r="5"/><circle cx="662.45" cy="834.65" r="5"/><circle cx="633.76" cy="846.53" r="5"/><circle cx="604.14" cy="855.87" r="5"/><circle cx="573.82" cy="862.59" r="5"/><circle cx="543.03" cy="866.65" r="5"/><circle cx="512.00" cy="868.00" r="5"/><circle cx="480.97" cy="866.65" r="5"/><circle cx="450.18" cy="862.59" r="5"/><circle cx="419.86" cy="855.87" r="5"/><circle cx="390.24" cy="846.53" r="5"/><circle cx="361.55" cy="834.65" r="5"/><circle cx="334.00" cy="820.31" r="5"/><circle cx="307.81" cy="803.62" r="5"/><circle cx="283.17" cy="784.71" r="5"/><circle cx="260.27" cy="763.73" r="5"/><circle cx="239.29" cy="740.83" r="5"/><circle cx="220.38" cy="716.19" r="5"/><circle cx="203.69" cy="690.00" r="5"/><circle cx="189.35" cy="662.45" r="5"/><circle cx="177.47" cy="633.76" r="5"/><circle cx="168.13" cy="604.14" r="5"/><circle cx="161.41" cy="573.82" r="5"/><circle cx="157.35" cy="543.03" r="5"/><circle cx="156.00" cy="512.00" r="5"/><circle cx="157.35" cy="480.97" r="5"/><circle cx="161.41" cy="450.18" r="5"/><circle cx="168.13" cy="419.86" r="5"/><circle cx="177.47" cy="390.24" r="5"/><circle cx="189.35" cy="361.55" r="5"/><circle cx="203.69" cy="334.00" r="5"/><circle cx="220.38" cy="307.81" r="5"/><circle cx="239.29" cy="283.17" r="5"/><circle cx="260.27" cy="260.27" r="5"/><circle cx="283.17" cy="239.29" r="5"/><circle cx="307.81" cy="220.38" r="5"/><circle cx="334.00" cy="203.69" r="5"/><circle cx="361.55" cy="189.35" r="5"/><circle cx="390.24" cy="177.47" r="5"/><circle cx="419.86" cy="168.13" r="5"/><circle cx="450.18" cy="161.41" r="5"/><circle cx="480.97" cy="157.35" r="5"/><circle cx="512.00" cy="156.00" r="5"/><circle cx="543.03" cy="157.35" r="5"/><circle cx="573.82" cy="161.41" r="5"/><circle cx="604.14" cy="168.13" r="5"/><circle cx="633.76" cy="177.47" r="5"/><circle cx="662.45" cy="189.35" r="5"/><circle cx="690.00" cy="203.69" r="5"/><circle cx="716.19" cy="220.38" r="5"/><circle cx="740.83" cy="239.29" r="5"/><circle cx="763.73" cy="260.27" r="5"/><circle cx="784.71" cy="283.17" r="5"/><circle cx="803.62" cy="307.81" r="5"/><circle cx="820.31" cy="334.00" r="5"/><circle cx="834.65" cy="361.55" r="5"/><circle cx="846.53" cy="390.24" r="5"/><circle cx="855.87" cy="419.86" r="5"/><circle cx="862.59" cy="450.18" r="5"/><circle cx="866.65" cy="480.97" r="5"/></g>
+  <g fill="#8B1C35" font-family="Georgia, serif" font-weight="700" text-anchor="middle">
+    <text font-size="64" letter-spacing="4"><textPath href="#topArc" startOffset="50%">MCM  JOURNEY  PASSPORT</textPath></text>
+    <text font-size="58" letter-spacing="4"><textPath href="#bottomArc" startOffset="50%">SEOUL  ·  KOREA</textPath></text>
+    <text x="512" y="528" font-size="232">SEL</text>
+  </g>
+  <g fill="#8B1C35" font-family="Noto Sans KR, Arial, sans-serif" text-anchor="middle">
+    <text x="512" y="632" font-size="78" font-weight="700">HDT</text>
+    <text x="512" y="720" font-size="34" font-weight="700">HYUNDAI TRADE CTR</text>
+    <text x="512" y="765" font-size="27">37.509°N  127.060°E</text>
+  </g>
+  <g fill="none" stroke="#8B1C35" stroke-width="7">
+    <path d="M183 486 C219 470 291 502 327 486 M183 512 C219 496 291 528 327 512 M183 538 C219 522 291 554 327 538"/>
+    <path d="M697 486 C733 470 805 502 841 486 M697 512 C733 496 805 528 841 512 M697 538 C733 522 805 554 841 538"/>
+    <path d="M355 661 H669"/>
+  </g>
+  <g fill="#8B1C35">
+    <path d="M112 482 L122 502 L142 512 L122 522 L112 542 L102 522 L82 512 L102 502 Z"/>
+    <path d="M912 482 L922 502 L942 512 L922 522 L912 542 L902 522 L882 512 L902 502 Z"/>
+    <path d="M512 645 L518 655 L528 661 L518 667 L512 677 L506 667 L496 661 L506 655 Z"/>
+  </g>
+</svg>
