@@ -1,0 +1,7 @@
+node_modules
+.expo
+dist
+.idea
+android
+ios
+.claude/settings.local.json
