@@ -15,6 +15,12 @@ const PRODUCT_IMAGES = [
   require('../../assets/products/product-19-native.jpg'),
 ];
 
+const PRODUCT_IMAGE_BY_CODE = new Map(
+  sourceProducts.map((product, index) => [product.productCode, PRODUCT_IMAGES[index]]),
+);
+
+export const getLocalProductImage = (productCode: string) => PRODUCT_IMAGE_BY_CODE.get(productCode);
+
 // 전달받은 products.json을 앱의 단일 기준 데이터로 쓴다.
 // React Native는 동적 require를 지원하지 않으므로 이미지 파일만 위에서 정적으로 매핑한다.
 const SOURCE_PRODUCTS = sourceProducts;

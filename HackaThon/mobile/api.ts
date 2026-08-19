@@ -1,12 +1,13 @@
 import axios from 'axios';
 import type { AIBrief, ConsultationNote, ProductRecommendation } from '../src/types';
-import type { AIBriefResponse, ApiEnvelope, AuthTokens, ConsultationRecordRequest, ConsultationRecordResponse, CustomerProfileResponse, CustomerSearchItem, CustomerSignupRequest, PageEnvelope, StampResponse, VisitResponse } from '../src/api/contracts';
+import { getLocalProductImage } from '../src/mock/products';
+import type { AIBriefResponse, ApiEnvelope, AuthTokens, ConsultationRecordRequest, ConsultationRecordResponse, CustomerProfileResponse, CustomerSearchItem, CustomerSignupRequest, PageEnvelope, ProductSummaryResponse, StampResponse, VisitResponse } from '../src/api/contracts';
 
-const FALLBACK_API_URL = 'https://api.example.com';
-export const api = axios.create({ baseURL: process.env.EXPO_PUBLIC_API_URL ?? FALLBACK_API_URL, timeout: 10_000, headers: { 'Content-Type': 'application/json' } });
+const DEFAULT_API_URL = 'http://localhost:8080';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL?.trim() || DEFAULT_API_URL;
+export const api = axios.create({ baseURL: API_BASE_URL, timeout: 10_000, headers: { 'Content-Type': 'application/json' } });
 let accessToken: string | null = null;
 export const setAccessToken = (token: string | null) => { accessToken = token; };
-export const hasConnectedBackend = () => !api.defaults.baseURL?.includes('api.example.com');
 api.interceptors.request.use((config) => { if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`; return config; });
 const unwrap = <T>(response: { data: ApiEnvelope<T> }): T => { if (!response.data.success) throw new Error(response.data.message ?? '?遺욧퍕 筌ｌ꼶?????쎈솭??됰뮸??덈뼄.'); return response.data.data; };
 
@@ -16,6 +17,35 @@ export type AIInsightResponse = { brief: AIBrief; recommendations: ProductRecomm
 const activeVisitIds = new Map<string, number>();
 
 const nonEmpty = (value?: string | null): value is string => Boolean(value && value.trim());
+
+const resolveProductImage = (product: ProductSummaryResponse): string | number => {
+  const legacySeedPath = product.imageUrl?.match(/^\/product-\d+\.jpg$/);
+  const imagePath = legacySeedPath
+    ? `/images/product/${product.productCode}.jpg`
+    : product.imageUrl;
+
+  if (imagePath) {
+    try {
+      return new URL(imagePath, `${API_BASE_URL.replace(/\/+$/, '')}/`).toString();
+    } catch {
+      // Fall through to the bundled image when the server returns an invalid URL.
+    }
+  }
+
+  return getLocalProductImage(product.productCode) ?? '';
+};
+
+const toProductRecommendation = (product: ProductSummaryResponse): ProductRecommendation => ({
+  productId: String(product.productId),
+  productName: product.name,
+  category: product.category,
+  price: product.price,
+  recommendable: product.recommendable,
+  variant: product.category === '가방' ? 'MCM Signature' : product.category,
+  tone: 'cognac',
+  reason: '고객님의 여정과 선호를 바탕으로 추천하는 MCM 제품입니다.',
+  imageUrl: resolveProductImage(product),
+});
 
 const toBrief = (customerId: string, response: AIBriefResponse): AIBrief => {
   const basis = [response.visitPurposeSummary, response.interestSummary].filter(nonEmpty);
@@ -76,6 +106,12 @@ export const customerApi = {
   getById: (customerId: string) => api.get<ApiEnvelope<CustomerProfileResponse>>(`/api/v1/customers/${customerId}`).then(unwrap),
   getByQr: (qrToken: string) => api.get<ApiEnvelope<CustomerProfileResponse>>(`/api/v1/customers/by-qr/${qrToken}`).then(unwrap),
   search: (keyword: string, page = 0, size = 20) => api.get<PageEnvelope<CustomerSearchItem>>('/api/v1/customers/search', { params: { keyword, page, size } }).then(unwrap),
+};
+
+export const productApi = {
+  list: () => api.get<ApiEnvelope<ProductSummaryResponse[]>>('/api/v1/products')
+    .then(unwrap)
+    .then((products) => products.map(toProductRecommendation)),
 };
 
 export const visitApi = {

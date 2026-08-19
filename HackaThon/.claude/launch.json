@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-preview",
+      "runtimeExecutable": "C:\\nvm4w\\nodejs\\npx.cmd",
+      "runtimeArgs": ["expo", "start", "--web"],
+      "port": 8081
+    }
+  ]
+}

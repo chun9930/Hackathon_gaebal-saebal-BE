@@ -4,7 +4,7 @@
     "name": "Pina 비세토스 숄더백",
     "category": "가방",
     "price": 1690000,
-    "imageUrl": "/product-01.jpg",
+    "imageUrl": "/images/product/bag001.jpg",
     "recommendable": true
   },
   {
@@ -12,7 +12,7 @@
     "name": "Stark 사이드 스터드 백팩",
     "category": "가방",
     "price": 2290000,
-    "imageUrl": "/product-02.jpg",
+    "imageUrl": "/images/product/bag002.jpg",
     "recommendable": true
   },
   {
@@ -20,7 +20,7 @@
     "name": "Rockstar 로렐 숄더백",
     "category": "가방",
     "price": 1550000,
-    "imageUrl": "/product-03.jpg",
+    "imageUrl": "/images/product/bag003.jpg",
     "recommendable": true
   },
   {
@@ -28,7 +28,7 @@
     "name": "Fursten 비세토스 벨트백",
     "category": "가방",
     "price": 1450000,
-    "imageUrl": "/product-04.jpg",
+    "imageUrl": "/images/product/bag004.jpg",
     "recommendable": true
   },
   {
@@ -36,7 +36,7 @@
     "name": "New Liz 리버서블 쇼퍼",
     "category": "가방",
     "price": 1090000,
-    "imageUrl": "/product-05.jpg",
+    "imageUrl": "/images/product/bag005.jpg",
     "recommendable": true
   },
   {
@@ -44,7 +44,7 @@
     "name": "Aren 모노그램 에코닐 보스턴백",
     "category": "가방",
     "price": 1090000,
-    "imageUrl": "/product-06.jpg",
+    "imageUrl": "/images/product/bag006.jpg",
     "recommendable": true
   },
   {
@@ -52,7 +52,7 @@
     "name": "Aren 레더 토트백",
     "category": "가방",
     "price": 990000,
-    "imageUrl": "/product-07.jpg",
+    "imageUrl": "/images/product/bag007.jpg",
     "recommendable": true
   },
   {
@@ -60,7 +60,7 @@
     "name": "Aren 모노그램 에코닐 백팩",
     "category": "가방",
     "price": 1850000,
-    "imageUrl": "/product-08.jpg",
+    "imageUrl": "/images/product/bag008.jpg",
     "recommendable": true
   },
   {
@@ -68,7 +68,7 @@
     "name": "Aren 모노그램 에코닐 토트",
     "category": "가방",
     "price": 1350000,
-    "imageUrl": "/product-09.jpg",
+    "imageUrl": "/images/product/bag009.jpg",
     "recommendable": true
   },
   {
@@ -76,7 +76,7 @@
     "name": "Aren 레더 백팩",
     "category": "가방",
     "price": 1450000,
-    "imageUrl": "/product-10.jpg",
+    "imageUrl": "/images/product/bag010.jpg",
     "recommendable": true
   },
   {
@@ -84,7 +84,7 @@
     "name": "레더 로고 스카프 링",
     "category": "액세서리",
     "price": 330000,
-    "imageUrl": "/product-11.jpg",
+    "imageUrl": "/images/product/acc001.jpg",
     "recommendable": true
   },
   {
@@ -92,7 +92,7 @@
     "name": "하이브리드 실크 트윌리",
     "category": "액세서리",
     "price": 195000,
-    "imageUrl": "/product-12.jpg",
+    "imageUrl": "/images/product/acc002.jpg",
     "recommendable": true
   },
   {
@@ -100,7 +100,7 @@
     "name": "모노그램 레더 롱 월렛",
     "category": "액세서리",
     "price": 390000,
-    "imageUrl": "/product-13.jpg",
+    "imageUrl": "/images/product/acc003.jpg",
     "recommendable": true
   },
   {
@@ -108,7 +108,7 @@
     "name": "코스믹 펄 오 드 퍼퓸",
     "category": "향수",
     "price": 94000,
-    "imageUrl": "/product-14.jpg",
+    "imageUrl": "/images/product/per001.jpg",
     "recommendable": true
   },
   {
@@ -116,7 +116,7 @@
     "name": "코코 베일 오 드 퍼퓸",
     "category": "향수",
     "price": 229000,
-    "imageUrl": "/product-15.jpg",
+    "imageUrl": "/images/product/per002.jpg",
     "recommendable": true
   },
   {
@@ -124,7 +124,7 @@
     "name": "블랙 머스크 오 드 퍼퓸",
     "category": "향수",
     "price": 210000,
-    "imageUrl": "/product-16.jpg",
+    "imageUrl": "/images/product/per003.jpg",
     "recommendable": true
   },
   {
@@ -132,7 +132,7 @@
     "name": "모노그램 에어팟 프로 케이스",
     "category": "테크",
     "price": 310000,
-    "imageUrl": "/product-17.jpg",
+    "imageUrl": "/images/product/tec001.jpg",
     "recommendable": true
   },
   {
@@ -140,7 +140,7 @@
     "name": "비세토스 Apple Watch 밴드",
     "category": "테크",
     "price": 290000,
-    "imageUrl": "/product-18.jpg",
+    "imageUrl": "/images/product/tec002.jpg",
     "recommendable": true
   },
   {
@@ -148,7 +148,7 @@
     "name": "MCM X CASETiFY 모노그램 iPhone 17 Pro 케이스",
     "category": "테크",
     "price": 239000,
-    "imageUrl": "/product-19.jpg",
+    "imageUrl": "/images/product/tec003.jpg",
     "recommendable": false
   }
 ]

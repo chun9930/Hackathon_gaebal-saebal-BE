@@ -25,6 +25,15 @@ export type CustomerProfileResponse = {
   joinedAt?: string;
 };
 export type CustomerSignupRequest = { loginId: string; password: string; name: string; phoneNumber: string };
+export type ProductSummaryResponse = {
+  productId: number;
+  productCode: string;
+  name: string;
+  category: string;
+  imageUrl?: string | null;
+  price: number;
+  recommendable: boolean;
+};
 export type CustomerSearchItem = {
   customerId: number;
   customerNo: string;

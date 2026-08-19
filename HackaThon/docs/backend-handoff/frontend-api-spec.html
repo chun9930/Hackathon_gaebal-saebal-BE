@@ -1,0 +1,138 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCM Private Circle API 명세서</title>
+  <style>
+    :root{--bg:#0b1020;--card:rgba(17,24,49,.82);--card-border:rgba(148,163,184,.18);--text:#e5e7eb;--muted:#a5b4fc;--subtle:#94a3b8;--accent:#60a5fa;--success:#34d399;--warn:#fbbf24;--danger:#f87171;--code-bg:#0f172a;--shadow:0 20px 50px rgba(2,6,23,.45);--radius:24px}
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;font-family:Inter,"Pretendard","Noto Sans KR",system-ui,sans-serif;color:var(--text);background:radial-gradient(circle at top left,rgba(99,102,241,.22),transparent 32%),radial-gradient(circle at top right,rgba(59,130,246,.16),transparent 28%),linear-gradient(180deg,#0a0f1f 0%,#0f172a 100%);line-height:1.78;letter-spacing:-.01em}
+    .wrap{max-width:1240px;margin:0 auto;padding:32px 20px 96px}.hero{padding:36px;border-radius:32px;background:linear-gradient(135deg,rgba(79,70,229,.28),rgba(37,99,235,.18));border:1px solid rgba(129,140,248,.24);box-shadow:var(--shadow);margin-bottom:28px;backdrop-filter:blur(18px)}
+    .eyebrow{display:inline-flex;gap:10px;align-items:center;padding:8px 14px;border-radius:999px;background:rgba(15,23,42,.55);color:var(--muted);font-size:13px;font-weight:700;margin-bottom:18px}
+    h1,h2,h3{margin:0 0 14px;line-height:1.25} h1{font-size:clamp(2.2rem,5vw,3.6rem);letter-spacing:-.04em} h2{font-size:clamp(1.35rem,2vw,1.8rem)} h3{font-size:1.05rem;color:#dbeafe} p{margin:0 0 14px;color:#dbe4f0}
+    .hero-meta{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}.pill{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;background:rgba(15,23,42,.5);color:#dbeafe;font-size:14px;border:1px solid rgba(148,163,184,.12)}
+    .layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:24px;align-items:start}.toc,.card{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(16px)}
+    .toc{position:sticky;top:20px;padding:22px 18px}.toc h2{font-size:1rem;color:#c7d2fe;margin-bottom:16px}.toc a{display:block;color:#cbd5e1;text-decoration:none;padding:9px 10px;border-radius:12px;font-size:14px;margin-bottom:4px}.toc a:hover{background:rgba(99,102,241,.12);color:#fff}
+    .content{display:grid;gap:24px}.card{padding:28px}.section-tag{display:inline-flex;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:10px}.grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .info-box{padding:18px;border-radius:18px;background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.12)} .badge-row{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 6px}.badge{display:inline-flex;align-items:center;padding:7px 11px;border-radius:999px;font-size:12px;font-weight:800;letter-spacing:.03em}
+    .blue{background:rgba(96,165,250,.16);color:#bfdbfe}.green{background:rgba(52,211,153,.15);color:#bbf7d0}.yellow{background:rgba(251,191,36,.15);color:#fde68a}.red{background:rgba(248,113,113,.15);color:#fecaca}
+    ul{margin:0;padding-left:22px;color:#dbe4f0} li{margin-bottom:8px} pre{margin:14px 0 0;padding:18px 20px;background:var(--code-bg);color:#dbeafe;border-radius:18px;overflow:auto;border:1px solid rgba(59,130,246,.16);line-height:1.65;font-size:13px} code{font-family:"JetBrains Mono",Consolas,monospace}
+    .endpoint{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}.method{min-width:64px;text-align:center;padding:8px 10px;border-radius:12px;font-size:12px;font-weight:900}.get{background:rgba(96,165,250,.16);color:#bfdbfe}.post{background:rgba(52,211,153,.16);color:#bbf7d0}.patch{background:rgba(251,191,36,.16);color:#fde68a}.delete{background:rgba(248,113,113,.16);color:#fecaca}
+    .endpoint-path{font-family:"JetBrains Mono",Consolas,monospace;font-size:14px;color:#e0e7ff;padding:8px 12px;border-radius:12px;background:rgba(15,23,42,.58);border:1px solid rgba(148,163,184,.12)} .note{padding:16px 18px;border-radius:18px;border:1px solid rgba(96,165,250,.16);background:rgba(30,41,59,.48)} .warning{border-color:rgba(251,191,36,.2);background:rgba(120,53,15,.14)} .danger{border-color:rgba(248,113,113,.22);background:rgba(127,29,29,.16)} .footer-note{margin-top:28px;font-size:14px;color:var(--subtle);text-align:center}
+    @media (max-width:980px){.layout{grid-template-columns:1fr}.toc{position:static}.grid-2{grid-template-columns:1fr}} @media (max-width:640px){.wrap{padding:20px 14px 72px}.hero,.card,.toc{padding:20px;border-radius:22px}h1{font-size:2rem}pre{font-size:12px}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero"><div class="eyebrow">MCM Private Circle · Frontend Handoff</div><h1>프론트엔드 전달용 API 명세서</h1><p>현재 백엔드 구현, ERD, 사용자 확정사항을 기준으로 정리한 최종 API 계약입니다. MySQL/Gemini 실검증은 아직 미실행 상태이며, 아래 내용은 현재 코드 구현 기준의 안정 계약입니다.</p><div class="hero-meta"><div class="pill">작성일 · 2026.08.17</div><div class="pill">기준 · Backend 구현 + ERD + 확정 정책</div><div class="pill">상태 · H2 회귀 검증 완료</div></div></header>
+<div class="layout"><aside class="toc"><h2>목차</h2><a href="#overview">1. 공통 규칙</a><a href="#response">2. 공통 응답 구조</a><a href="#auth">3. 인증 / 로그인</a><a href="#customer">4. 고객 API</a><a href="#visit">7. 방문 API</a><a href="#visit-record">8. 방문기록 API</a><a href="#stamp">11. 스탬프 API</a><a href="#ai">12. AI Brief API</a></aside><main class="content">
+<section class="card" id="overview"><div class="section-tag">Overview</div><h2>1. 전체 공통 규칙</h2><div class="grid-2"><div class="info-box"><h3>백엔드/ERD 구조는 프론트 때문에 바꾸지 않음</h3><ul><li>Customer / Visit / VisitRecord 분리</li><li>Interest / Purchase / Stamp / AI Brief 별도 테이블</li><li>CA storeId는 JWT 기반</li><li>Visit 중심 업무 흐름</li><li>Gemini Brief 5개 필드 구조</li></ul></div><div class="info-box"><h3>프론트가 반드시 맞춰야 하는 핵심</h3><ul><li>보호 API는 실제 JWT 기준으로 호출</li><li>응답은 ApiResponse / PageResponse 처리</li><li>CA 임의 매장 선택 제거</li><li>QR 조회는 customerNo가 아니라 qrToken</li><li>Visit 생성 후 visitId 상태 관리</li><li>VisitRecord DELETE 없음</li><li>AI Brief latest는 visitId query 필수</li></ul></div></div></section>
+<section class="card" id="response"><div class="section-tag">Response Contract</div><h2>2. 공통 응답 구조</h2><div class="grid-2"><div><h3>성공 응답</h3><pre><code>{
+  "success": true,
+  "data": {},
+  "message": "요청이 성공적으로 처리되었습니다."
+}</code></pre></div><div><h3>실패 응답</h3><pre><code>{
+  "success": false,
+  "error": {
+    "code": "CUSTOMER_NOT_FOUND",
+    "message": "고객 정보를 찾을 수 없습니다."
+  }
+}</code></pre></div></div><div style="margin-top:16px;"><h3>목록 응답</h3><pre><code>{
+  "success": true,
+  "data": {
+    "items": [],
+    "page": 0,
+    "size": 20,
+    "totalElements": 35,
+    "totalPages": 2,
+    "hasNext": true
+  }
+}</code></pre></div><div class="badge-row"><span class="badge green">201 Created · 생성</span><span class="badge blue">200 OK · 조회/수정/삭제</span><span class="badge yellow">400 / 401 / 403 / 404 / 409</span><span class="badge red">502 · 외부 AI 오류</span></div></section>
+<section class="card" id="auth"><div class="section-tag">Auth</div><h2>3. 인증 / 로그인</h2><div class="info-box"><div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/api/v1/auth/customers/signup</span></div><p>권한: Public</p><pre><code>{
+  "loginId": "customer01",
+  "password": "password123!",
+  "name": "홍길동",
+  "phoneNumber": "01012345678"
+}</code></pre></div><div class="grid-2" style="margin-top:16px;"><div class="info-box"><div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/api/v1/auth/customers/login</span></div><p>권한: Public</p></div><div class="info-box"><div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/api/v1/auth/employees/login</span></div><p>권한: Public</p><p>응답에는 caId, storeId, role=CA 포함</p></div></div></section>
+<section class="card" id="customer"><div class="section-tag">Customer</div><h2>4. 고객 API</h2><div class="info-box"><div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/api/v1/customers/me</span></div><p>권한: CUSTOMER</p><pre><code>{
+  "customerId": 10,
+  "customerNo": "C00000010",
+  "name": "홍길동",
+  "phoneNumber": "01012345678",
+  "qrToken": "4d2a7c2fc0c54356b7011d76f7c5bc17",
+  "profileImageUrl": "https://...",
+  "membershipGrade": "GOLD",
+  "stylePreferences": "미니백, 블랙, 실버 하드웨어 선호",
+  "visitCount": 3,
+  "stampCount": 2,
+  "lastVisitedAt": "2026-08-14T14:00:00",
+  "joinedAt": "2026-08-01T10:00:00"
+}</code></pre></div><div class="note" style="margin-top:16px;"><strong>중요</strong><br />customerNo와 qrToken이 응답에 포함됩니다. customerNo는 서버가 회원가입 후 C%08d 포맷으로 생성합니다.</div><div class="info-box" style="margin-top:16px;"><div class="endpoint"><span class="method patch">PATCH</span><span class="endpoint-path">/api/v1/customers/me</span></div><p>권한: CUSTOMER</p><pre><code>{
+  "name": "홍길동",
+  "phoneNumber": "01099998888",
+  "profileImageUrl": "https://...",
+  "stylePreferences": "백팩보다 토트백 선호"
+}</code></pre><p>membershipGrade는 요청에 보내지 않습니다.</p></div>
+<div class="grid-2" style="margin-top:16px;"><div class="info-box"><div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/api/v1/customers/{customerId}</span></div><p>권한: CA · CustomerProfileResponse 동일</p></div><div class="info-box"><div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/api/v1/customers/by-qr/{qrToken}</span></div><p>권한: CA · QR 스캔 결과는 qrToken이어야 합니다.</p></div></div><div class="info-box" style="margin-top:16px;"><div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/api/v1/customers/search?keyword={keyword}&amp;page=0&amp;size=20</span></div><p>권한: CA · 검색 기준: name, phoneNumber, customerNo</p><pre><code>{
+  "items": [
+    {
+      "customerId": 10,
+      "customerNo": "C00000010",
+      "name": "홍길동",
+      "phoneNumber": "01012345678",
+      "profileImageUrl": "https://...",
+      "membershipGrade": "GOLD",
+      "joinedAt": "2026-08-01T10:00:00"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1,
+  "hasNext": false
+}</code></pre></div></section>
+<section class="card" id="visit"><div class="section-tag">Visit</div><h2>7. 방문 API</h2><div class="info-box"><div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/api/v1/visits</span></div><p>권한: CA</p><pre><code>{
+  "customerId": 10,
+  "visitedAt": "2026-08-17T14:00:00"
+}</code></pre><pre><code>{
+  "visitId": 101,
+  "customerId": 10,
+  "customerName": "홍길동",
+  "storeId": 3,
+  "storeName": "MCM 롯데백화점 본점",
+  "visitedAt": "2026-08-17T14:00:00"
+}</code></pre></div><div class="grid-2" style="margin-top:16px;"><div class="info-box"><div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/api/v1/customers/{customerId}/visits?page=0&amp;size=20</span></div><p>권한: CA</p></div><div class="info-box"><div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/api/v1/visits/{visitId}</span></div><p>권한: CA</p></div></div></section>
+<section class="card" id="visit-record"><div class="section-tag">Visit Record</div><h2>8. 방문기록 API</h2><div class="grid-2"><div class="info-box"><div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/api/v1/visits/{visitId}/records</span></div><p>권한: CA</p></div><div class="info-box"><div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/api/v1/visits/{visitId}/records</span></div><p>권한: CA</p></div></div><pre><code>{
+  "visitRecordId": 88,
+  "visitId": 101,
+  "customerId": 10,
+  "customerName": "홍길동",
+  "caId": 7,
+  "caName": "김어드바이저",
+  "storeId": 3,
+  "storeName": "MCM 롯데백화점 본점",
+  "visitedAt": "2026-08-17T14:00:00",
+  "visitPurpose": "취향 확인",
+  "content": "미니백 라인 상담",
+  "styleChangeNote": "블랙 선호 유지",
+  "cautionNote": "강한 권유보다 비교 설명 선호",
+  "createdAt": "2026-08-17T14:20:00"
+}</code></pre></section>
+<section class="card" id="stamp"><div class="section-tag">Stamp</div><h2>11. 스탬프 API</h2><div class="grid-2"><div class="info-box"><div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/api/v1/visits/{visitId}/stamps</span></div><p>권한: CA</p></div><div class="info-box"><div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/api/v1/customers/me/stamps?page=0&amp;size=20</span></div><p>권한: CUSTOMER</p></div></div><pre><code>{
+  "stampId": 55,
+  "visitId": 101,
+  "customerId": 10,
+  "customerName": "홍길동",
+  "storeId": 3,
+  "storeName": "MCM 롯데백화점 본점",
+  "issuedByCaId": 7,
+  "issuedByCaName": "김어드바이저",
+  "stampType": "WELCOME",
+  "issuedAt": "2026-08-17T14:10:00",
+  "visitedAt": "2026-08-17T14:00:00"
+}</code></pre></section>
+<section class="card" id="ai"><div class="section-tag">AI Brief</div><h2>12. AI Brief API</h2><div class="warning note"><strong>현재 상태</strong><br />MySQL/Gemini 실검증은 아직 미실행 상태입니다. 현재 로컬 안전 모드 기준으로 AI Brief 생성의 실제 외부 Gemini 호출은 비활성 상태입니다. 다만 API 계약 자체는 이후 외부 연동 시점에도 유지되도록 설계되어 있습니다.</div><div class="info-box" style="margin-top:16px;"><div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/api/v1/customers/{customerId}/ai-briefs</span></div><pre><code>{
+  "visitId": 101
+}</code></pre></div><div class="grid-2" style="margin-top:16px;"><div class="info-box"><div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/api/v1/customers/{customerId}/ai-briefs/latest?visitId=101</span></div><p>권한: CA · latest는 GENERATED/FAILED 포함 최신 생성 시도 기준</p></div><div class="info-box"><div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/api/v1/customers/{customerId}/ai-briefs?page=0&amp;size=20</span></div><p>권한: CA · 조회 API는 Gemini 재호출 없음</p></div></div></section>
+<section class="card" id="frontend-checklist"><div class="section-tag">Frontend Checklist</div><h2>13. 프론트가 꼭 수정해야 하는 항목</h2><ul><li>JWT 실제 로그인 연동</li><li>ApiResponse 공통 파서 적용</li><li>qrToken 기반 QR 조회</li><li>Visit 생성 후 visitId 상태 관리</li><li>VisitRecord / Stamp / AI Brief 흐름 연결</li><li>Visit / VisitRecord / Stamp display 필드 반영</li></ul></section>
+<section class="card" id="follow-up"><div class="section-tag">Follow-up</div><h2>14. 현재 남은 후속 항목</h2><div class="danger note"><strong>남아 있는 후속 검토</strong><br />AI 브리프 생성 API의 실제 외부 Gemini 호출 활성화 시점 관리</div></section></main></div><div class="footer-note">MCM Private Circle · Frontend API Spec · Responsive HTML Handoff</div></div></body></html>

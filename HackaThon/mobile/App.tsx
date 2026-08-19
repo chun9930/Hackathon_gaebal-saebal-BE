@@ -65,7 +65,7 @@ import { MOCK_BRIEFS } from "../src/mock/briefs";
 import type { Customer, JourneyStamp, ProductRecommendation, UserRole } from "../src/types";
 import type { CustomerProfileResponse } from "../src/api/contracts";
 import { colors as c } from "./theme";
-import { authApi, caApi, customerApi, hasConnectedBackend } from "./api";
+import { authApi, caApi, customerApi, productApi, setAccessToken } from "./api";
 
 type AuthScreen = "login" | "signup";
 type StoreName = keyof typeof STORE_STAMP_IMAGES;
@@ -79,6 +79,7 @@ type AppState = {
   setAuthScreen: (v: AuthScreen) => void;
   customers: Customer[];
   customer: Customer;
+  products: ProductRecommendation[];
   select: (id: string) => void;
   toggleProduct: (id: string) => void;
   currentStore: StoreName;
@@ -186,11 +187,13 @@ function Provider({ children }: { children: React.ReactNode }) {
     setLoggedIn(true);
   };
   const logout = () => {
+    setAccessToken(null);
     setLoggedIn(false);
     setRoleState("customer");
     setAuthScreen("login");
   };
   const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
+  const [products, setProducts] = useState<ProductRecommendation[]>(RECOMMENDABLE_PRODUCTS);
   const [selected, select] = useState("cust-01");
   const [currentStore, setCurrentStore] = useState<StoreName>(
     "MCM 하우스 플래그십스토어",
@@ -226,6 +229,12 @@ function Provider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     AsyncStorage.setItem(storageKey, JSON.stringify(customers));
   }, [customers]);
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    productApi.list()
+      .then((items) => setProducts(items.filter((product) => product.recommendable)))
+      .catch(() => undefined);
+  }, [isLoggedIn]);
   const customer = customers.find((x) => x.id === selected) ?? customers[0];
   const syncCustomerProfile = (profile: CustomerProfileResponse) => {
     const nextCustomer = toFrontendCustomer(profile);
@@ -258,6 +267,7 @@ function Provider({ children }: { children: React.ReactNode }) {
       setAuthScreen,
       customers,
       customer,
+      products,
       select,
       currentStore,
       setCurrentStore,
@@ -336,7 +346,7 @@ function Provider({ children }: { children: React.ReactNode }) {
         ),
       syncCustomerProfile,
     }),
-    [role, isLoggedIn, authScreen, customers, selected, currentStore],
+    [role, isLoggedIn, authScreen, customers, selected, currentStore, products],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
@@ -545,7 +555,7 @@ function Screen({
 }
 
 function Login() {
-  const { setRole, select, setAuthScreen, syncCustomerProfile } = useApp();
+  const { setRole, setAuthScreen, syncCustomerProfile } = useApp();
   const { isTablet, horizontalPadding } = useResponsive();
   const [role, choose] = useState<UserRole>("customer");
   const [identifier, setIdentifier] = useState("");
@@ -553,20 +563,18 @@ function Login() {
   const [submitting, setSubmitting] = useState(false);
   const enter = async () => {
     if (submitting) return;
-    // 백엔드 URL이 아직 설정되지 않은 데모 환경에서는 이전과 동일하게 즉시 진입한다.
-    if (!hasConnectedBackend()) {
-      setRole(role);
-      select("cust-01");
+    if (!identifier.trim() || !password) {
+      Alert.alert("확인 필요", "로그인 아이디와 비밀번호를 입력해 주세요.");
       return;
     }
     setSubmitting(true);
     try {
       if (role === "customer") {
-        await authApi.customerLogin(identifier, password);
+        await authApi.customerLogin(identifier.trim(), password);
         const profile = await customerApi.me();
         syncCustomerProfile(profile);
       } else {
-        await authApi.employeeLogin(identifier, password);
+        await authApi.employeeLogin(identifier.trim(), password);
       }
       setRole(role);
     } catch {
@@ -651,8 +659,8 @@ function Login() {
             </Text>
           </View>
           <View style={s.authField}>
-            <Text style={s.label}>{isCustomer ? "이메일 또는 휴대폰 번호" : "담당 CA 사번"}</Text>
-            <TextInput style={s.textInput} value={identifier} onChangeText={setIdentifier} placeholder={isCustomer ? "example@email.com" : "CA-1092"} placeholderTextColor={c.muted} autoCapitalize="none" />
+            <Text style={s.label}>{isCustomer ? "로그인 아이디" : "담당 CA 사번"}</Text>
+            <TextInput style={s.textInput} value={identifier} onChangeText={setIdentifier} placeholder={isCustomer ? "가입한 아이디를 입력하세요" : "CA-1092"} placeholderTextColor={c.muted} autoCapitalize="none" />
           </View>
           <View style={[s.authField, s.passwordField]}>
             <Text style={s.label}>비밀번호</Text>
@@ -673,7 +681,7 @@ function Login() {
                 <Text style={s.signupText}>아직 계정이 없으신가요? </Text>
                 <Text style={s.signupLinkText}>회원가입</Text>
               </Pressable>
-              <Text style={s.demo}>데모 계정으로 바로 입장할 수 있습니다.</Text>
+              <Text style={s.demo}>가입한 계정으로 로그인해 주세요.</Text>
             </>
           )}
         </View>
@@ -682,7 +690,7 @@ function Login() {
   );
 }
 function SignUp() {
-  const { setAuthScreen, setRole, select, syncCustomerProfile } = useApp();
+  const { setAuthScreen, setRole, syncCustomerProfile } = useApp();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -697,12 +705,6 @@ function SignUp() {
     const digitsOnlyPhone = phone.replace(/\D/g, "");
     if (!/^01[0-9]{8,9}$/.test(digitsOnlyPhone)) {
       Alert.alert("확인 필요", "휴대폰 번호 형식을 확인해 주세요. (예: 01012345678)");
-      return;
-    }
-    // 백엔드 URL이 아직 설정되지 않은 데모 환경에서는 이전과 동일하게 즉시 진입한다.
-    if (!hasConnectedBackend()) {
-      select("cust-01");
-      setRole("customer");
       return;
     }
     setSubmitting(true);
@@ -809,7 +811,7 @@ function Splash({ onComplete }: { onComplete: () => void }) {
 }
 
 function CustomerHome() {
-  const { customer } = useApp();
+  const { customer, products } = useApp();
   const n = useNavigation<any>();
   const [qr, setQr] = useState(false);
   const [stampRowWidth, onStampRowLayout] = useMeasuredWidth();
@@ -874,7 +876,7 @@ function CustomerHome() {
         contentContainerStyle={{ gap: stampGap }}
       />
       <SectionTitle title="고객 맞춤 추천 제품" action={() => n.navigate("Recommendations")} />
-      <ProductList products={RECOMMENDABLE_PRODUCTS.slice(0, 3)} />
+      <ProductList products={products.slice(0, 3)} />
       <View style={s.homeActionList}>
         <Pressable onPress={() => n.navigate("Passport")} style={s.homeActionDark}>
           <BookOpen color={c.paper} size={24} />
@@ -1193,11 +1195,12 @@ function Journey() {
   );
 }
 function Recommendations() {
+  const { products } = useApp();
   return (
     <Screen title="맞춤 추천" back>
       <Text style={s.pageTitle}>고객 맞춤 추천 제품</Text>
       <Text style={s.recommendationDescription}>고객님만을 위한 MCM의 추천 제품입니다.</Text>
-      <ProductList products={RECOMMENDABLE_PRODUCTS} />
+      <ProductList products={products} />
     </Screen>
   );
 }
@@ -1285,8 +1288,8 @@ function Benefits() {
   );
 }
 function Saved() {
-  const { customer } = useApp();
-  const saved = RECOMMENDABLE_PRODUCTS.filter((x) =>
+  const { customer, products } = useApp();
+  const saved = products.filter((x) =>
     customer.savedProductIds.includes(x.productId),
   );
   return (
@@ -1646,10 +1649,6 @@ function Brief() {
       </View>
       <View style={s.aiDisclosure}><Text style={s.aiDisclosureText}>AI는 고객과 직접 대화하지 않습니다. 이 브리프는 실제 기록을 요약한 참고 정보이며 최종 응대 방식은 CA가 결정합니다.</Text></View>
       <Button secondary onPress={async () => {
-        if (!hasConnectedBackend()) {
-          Alert.alert("데모 갱신 완료", "저장된 상담 기록을 백엔드 LLM이 연결되면 같은 요청으로 분석합니다.");
-          return;
-        }
         try {
           const response = await caApi.regenerateCustomerInsights(customer.id);
           setBrief(response.brief);
@@ -1662,12 +1661,13 @@ function Brief() {
   );
 }
 function CaRecommendations() {
+  const { products } = useApp();
   return (
     <Screen title="CA PICK 추천" back>
       <Text style={s.body}>
         고객 선호와 상담 맥락을 토대로 제안할 제품 후보입니다.
       </Text>
-      <ProductList products={RECOMMENDABLE_PRODUCTS.slice(0, 3)} />
+      <ProductList products={products.slice(0, 3)} />
     </Screen>
   );
 }
@@ -1709,13 +1709,14 @@ function Consultation() {
             cautionUpdate: caution,
             consentConfirmed: true,
           };
-          addConsultation(customer.id, draft);
-          // 백엔드 주소가 연결되면 같은 구조의 상담 데이터가 서버·LLM 파이프라인으로 전송된다.
-          if (hasConnectedBackend()) {
-            try { await caApi.createConsultation(customer.id, draft); } catch { /* local save remains available offline */ }
+          try {
+            await caApi.createConsultation(customer.id, draft);
+            addConsultation(customer.id, draft);
+            Alert.alert("저장 완료", "상담 기록이 고객 이력에 저장되었습니다.");
+            n.goBack();
+          } catch {
+            Alert.alert("저장 실패", "네트워크를 확인한 뒤 다시 시도해 주세요.");
           }
-          Alert.alert("저장 완료", "상담 기록이 고객 이력에 저장되었습니다.");
-          n.goBack();
         }}
       >
         상담 기록 저장
@@ -1736,7 +1737,7 @@ function IssueStamp() {
         <View style={s.issueInfoColumn}><View style={[s.card, s.issueInfoCard]}><Text style={[s.label, s.issueInfoLabel]}>발급 대상 고객</Text><Text style={[s.cardTitle, s.issueInfoTitle]}>{customer.name} · {customer.membershipTier === "VIP" ? "VIP 고객" : "일반 고객"}</Text><View style={s.issueDetailLine}><MapPin size={16} color={c.gold} /><View><Text style={[s.caption, s.issueInfoCaption]}>방문 매장</Text><Text style={[s.cardTitle, s.issueInfoTitle]}>{currentStore}</Text></View></View><View style={s.issueDetailLine}><View><Text style={[s.caption, s.issueInfoCaption]}>담당 CA</Text><Text style={[s.cardTitle, s.issueInfoTitle]}>이현우 어드바이저</Text></View></View><View><Text style={[s.caption, s.issueInfoCaption]}>발급 일시</Text><Text style={[s.cardTitle, s.issueInfoTitle]}>{new Date().toLocaleString("ko-KR")}</Text></View></View></View>
       </View>
       <View style={[s.issueActions, !isTablet && s.issueActionsMobile]}>
-        <View style={[s.issueAction, s.issueVisualAction]}><Button onPress={async () => { if (!verified) { setVerified(true); return; } try { if (hasConnectedBackend()) await caApi.issueVisitStamp(customer.id); addStamp(customer.id, "visit"); n.navigate("StampSuccess"); } catch { Alert.alert("발급 실패", "네트워크를 확인한 뒤 다시 시도해 주세요."); } }} icon={<Stamp color={c.paper} size={22} />}>{verified ? "방문 스탬프 발급" : "중복 발급 여부 확인"}</Button></View>
+        <View style={[s.issueAction, s.issueVisualAction]}><Button onPress={async () => { if (!verified) { setVerified(true); return; } try { await caApi.issueVisitStamp(customer.id); addStamp(customer.id, "visit"); n.navigate("StampSuccess"); } catch { Alert.alert("발급 실패", "네트워크를 확인한 뒤 다시 시도해 주세요."); } }} icon={<Stamp color={c.paper} size={22} />}>{verified ? "방문 스탬프 발급" : "중복 발급 여부 확인"}</Button></View>
         <View style={[s.issueAction, s.issueInfoAction]}><Button secondary onPress={() => n.goBack()}>취소</Button></View>
       </View>
     </Screen>
