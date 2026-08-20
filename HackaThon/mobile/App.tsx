@@ -66,7 +66,8 @@ import { MOCK_BRIEFS } from "../src/mock/briefs";
 import type { Customer, JourneyStamp, ProductRecommendation, UserRole } from "../src/types";
 import type { CustomerProfileResponse, CustomerSearchItem } from "../src/api/contracts";
 import { colors as c } from "./theme";
-import { authApi, caApi, customerApi, employeeApi, getApiErrorMessage, productApi, resolveApiUrl, setAccessToken } from "./api";
+import { authApi, caApi, customerApi, employeeApi, getApiErrorCode, getApiErrorMessage, productApi, resolveApiUrl, setAccessToken } from "./api";
+import { getCustomerSearchErrorMessage, normalizeCustomerSearchKeyword } from "./customer-search";
 
 type AuthScreen = "login" | "signup";
 type StoreName = keyof typeof STORE_STAMP_IMAGES;
@@ -95,10 +96,13 @@ type AppState = {
   updateAvatar: (uri: string) => void;
   syncCustomerProfile: (profile: CustomerProfileResponse) => void;
   syncCustomerStamps: (customerId: string, stamps: JourneyStamp[]) => void;
+  syncCustomerSearchResults: (items: CustomerSearchItem[]) => Customer[];
 };
 const Ctx = createContext<AppState | null>(null);
 const useApp = () => useContext(Ctx)!;
 const storageKey = "mcm-mobile-customers";
+const caStorageKey = "mcm-mobile-ca-customers";
+const caSelectedKey = "mcm-mobile-ca-selected-customer";
 // 목업도 실 API와 동일하게 customerNo와 분리된 QR 토큰만 화면에 노출한다.
 const INITIAL_CUSTOMERS: Customer[] = MOCK_CUSTOMERS.map((customer) => ({
   ...customer,
@@ -207,6 +211,33 @@ const formatStoreName = (storeName: string) =>
     ? "MCM 하우스\n플래그십스토어"
     : storeName.replace(" 롯데백화점 ", " 롯데백화점\n").replace(" 면세점 ", " 면세점\n");
 const isBackendCustomerId = (value: string) => /^\d+$/.test(value);
+const CUSTOMER_QR_PREFIX = "mcm-private-circle://customer/";
+const LEGACY_CUSTOMER_NO_PATTERN = /^C\d{8}$/i;
+const retryApiCall = async <T,>(operation: () => Promise<T>, retries = 1, delayMs = 250): Promise<T> => {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt === retries) break;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw lastError;
+};
+const parseCustomerQrPayload = (value: string): { kind: "qrToken" | "customerNo"; value: string } | null => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const normalized = decodeURIComponent(
+    trimmed.startsWith(CUSTOMER_QR_PREFIX) ? trimmed.slice(CUSTOMER_QR_PREFIX.length) : trimmed,
+  ).trim().replace(/^\/+|\/+$/g, "");
+  if (!normalized) return null;
+  if (LEGACY_CUSTOMER_NO_PATTERN.test(normalized)) {
+    return { kind: "customerNo", value: normalized.toUpperCase() };
+  }
+  return { kind: "qrToken", value: normalized };
+};
 
 // 가로 스크롤 행의 실제 렌더 너비를 측정해, 카드가 화면 밖으로 잘리지 않도록
 // 카드 폭을 그 너비에 맞춰 계산할 때 쓴다(도장 크기를 임의로 줄이지 않기 위함).
@@ -225,9 +256,26 @@ function Provider({ children }: { children: React.ReactNode }) {
   const setRole = (nextRole: UserRole) => {
     setRoleState(nextRole);
     if (nextRole === "ca") {
-      setCaCustomersLoading(true);
-      setCustomers([]);
-      select("");
+      setCaCustomersLoading(false);
+      AsyncStorage.multiGet([caStorageKey, caSelectedKey])
+        .then(([savedCustomersEntry, savedSelectedEntry]) => {
+          const savedCustomersValue = savedCustomersEntry?.[1];
+          const savedSelectedValue = savedSelectedEntry?.[1];
+          if (!savedCustomersValue) {
+            setCustomers([]);
+            select("");
+            return;
+          }
+          const savedCustomers = JSON.parse(savedCustomersValue) as Customer[];
+          setCustomers(savedCustomers);
+          const hasSelectedCustomer = savedSelectedValue
+            && savedCustomers.some((customer) => customer.id === savedSelectedValue);
+          select(hasSelectedCustomer ? savedSelectedValue : savedCustomers[0]?.id ?? "");
+        })
+        .catch(() => {
+          setCustomers([]);
+          select("");
+        });
     } else {
       setCaCustomersLoading(false);
     }
@@ -275,24 +323,19 @@ function Provider({ children }: { children: React.ReactNode }) {
       .catch(() => undefined);
   }, []);
   useEffect(() => {
-    if (role !== "ca" || !isLoggedIn) return;
-    setCaCustomersLoading(true);
-    customerApi.search("", 0, 50)
-      .then((page) => {
-        const items = page.items.map(toFrontendSearchCustomer);
-        setCustomers(items);
-        select(items[0]?.id ?? "");
-      })
-      .catch(() => {
-        setCustomers([]);
-        select("");
-      })
-      .finally(() => setCaCustomersLoading(false));
-  }, [role, isLoggedIn]);
-  useEffect(() => {
     if (role !== "customer") return;
     AsyncStorage.setItem(storageKey, JSON.stringify(customers));
   }, [customers, role]);
+  useEffect(() => {
+    if (role !== "ca") return;
+    AsyncStorage.setItem(caStorageKey, JSON.stringify(customers))
+      .catch(() => undefined);
+  }, [customers, role]);
+  useEffect(() => {
+    if (role !== "ca") return;
+    AsyncStorage.setItem(caSelectedKey, selected)
+      .catch(() => undefined);
+  }, [selected, role]);
   useEffect(() => {
     if (!isLoggedIn) return;
     productApi.list()
@@ -333,6 +376,12 @@ function Provider({ children }: { children: React.ReactNode }) {
             },
       ),
     );
+  };
+  const syncCustomerSearchResults = (items: CustomerSearchItem[]) => {
+    const nextCustomers = items.map(toFrontendSearchCustomer);
+    setCustomers(nextCustomers);
+    select(nextCustomers[0]?.id ?? "");
+    return nextCustomers;
   };
   const value = useMemo(
     () => ({
@@ -426,6 +475,7 @@ function Provider({ children }: { children: React.ReactNode }) {
         ),
       syncCustomerProfile,
       syncCustomerStamps,
+      syncCustomerSearchResults,
     }),
     [role, isLoggedIn, caCustomersLoading, authScreen, customers, selected, currentStore, currentCaName, products],
   );
@@ -645,6 +695,7 @@ function Login() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
   const enter = async () => {
     if (submitting) return;
     if (!identifier.trim() || !password) {
@@ -654,24 +705,50 @@ function Login() {
     setSubmitting(true);
     try {
       if (role === "customer") {
+        setLoadingMessage("로그인 중");
         await authApi.customerLogin(identifier.trim(), password);
-        const profile = await customerApi.me();
-        syncCustomerProfile(profile);
-        const stamps = await customerApi.stamps();
-        syncCustomerStamps(
-          String(profile.customerId),
-          stamps.items.map(toFrontendJourneyStamp),
-        );
+        setRole(role);
+        setLoadingMessage("고객 정보를 불러오는 중");
+        const [profileResult, stampsResult] = await Promise.allSettled([
+          retryApiCall(() => customerApi.me()),
+          retryApiCall(() => customerApi.stamps()),
+        ]);
+        if (profileResult.status === "fulfilled") {
+          syncCustomerProfile(profileResult.value);
+          if (stampsResult.status === "fulfilled") {
+            syncCustomerStamps(
+              String(profileResult.value.customerId),
+              stampsResult.value.items.map(toFrontendJourneyStamp),
+            );
+          }
+        }
+        if (profileResult.status === "rejected" || stampsResult.status === "rejected") {
+          const syncError = profileResult.status === "rejected"
+            ? profileResult.reason
+            : stampsResult.status === "rejected"
+              ? stampsResult.reason
+              : undefined;
+          const syncMessage = syncError ? `\n${getApiErrorMessage(syncError)}` : "";
+          Alert.alert("로그인 완료", `로그인은 완료됐지만 일부 고객 정보를 바로 불러오지 못했습니다.${syncMessage}`);
+        }
       } else {
+        setLoadingMessage("로그인 중");
         await authApi.employeeLogin(identifier.trim(), password);
-        const profile = await employeeApi.me();
-        setCurrentStore(normalizeStoreName(profile.storeName) as StoreName);
-        setCurrentCaName(profile.name);
+        setRole(role);
+        setLoadingMessage("CA 정보를 불러오는 중");
+        retryApiCall(() => employeeApi.me())
+          .then((profile) => {
+            setCurrentStore(normalizeStoreName(profile.storeName) as StoreName);
+            setCurrentCaName(profile.name);
+          })
+          .catch((error) => {
+            Alert.alert("로그인 완료", `로그인은 완료됐지만 CA 프로필을 바로 불러오지 못했습니다.\n${getApiErrorMessage(error)}`);
+          });
       }
-      setRole(role);
-    } catch {
-      Alert.alert("로그인 실패", "아이디 또는 비밀번호를 확인한 뒤 다시 시도해 주세요.");
+    } catch (error) {
+      Alert.alert("로그인 실패", getApiErrorMessage(error));
     } finally {
+      setLoadingMessage("");
       setSubmitting(false);
     }
   };
@@ -759,8 +836,8 @@ function Login() {
             <TextInput style={s.textInput} value={password} onChangeText={setPassword} placeholder="비밀번호를 입력하세요" placeholderTextColor={c.muted} secureTextEntry />
           </View>
           <View style={s.loginButtonWrap}>
-            <Button onPress={enter} icon={<ChevronRight color={c.paper} size={24} />}>
-              {isCustomer ? "로그인하고 여권 보기" : "CA Workstation 시작"}
+            <Button onPress={enter} disabled={submitting} icon={<ChevronRight color={c.paper} size={24} />}>
+              {submitting ? loadingMessage || "처리 중" : isCustomer ? "로그인하고 여권 보기" : "CA Workstation 시작"}
             </Button>
           </View>
           {isCustomer && (
@@ -788,6 +865,7 @@ function SignUp() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
   const submit = async () => {
     if (submitting) return;
     if (!name.trim() || !email.trim() || !phone.trim() || !password.trim()) {
@@ -801,23 +879,41 @@ function SignUp() {
     }
     setSubmitting(true);
     try {
+      setLoadingMessage("회원가입 중");
       await authApi.customerSignup({
         loginId: email.trim(),
         password,
         name: name.trim(),
         phoneNumber: digitsOnlyPhone,
       });
-      const profile = await customerApi.me();
-      syncCustomerProfile(profile);
-      const stamps = await customerApi.stamps();
-      syncCustomerStamps(
-        String(profile.customerId),
-        stamps.items.map(toFrontendJourneyStamp),
-      );
       setRole("customer");
-    } catch {
-      Alert.alert("회원가입 실패", "입력하신 정보를 확인한 뒤 다시 시도해 주세요.");
+      setLoadingMessage("고객 정보를 불러오는 중");
+      const [profileResult, stampsResult] = await Promise.allSettled([
+        retryApiCall(() => customerApi.me()),
+        retryApiCall(() => customerApi.stamps()),
+      ]);
+      if (profileResult.status === "fulfilled") {
+        syncCustomerProfile(profileResult.value);
+        if (stampsResult.status === "fulfilled") {
+          syncCustomerStamps(
+            String(profileResult.value.customerId),
+            stampsResult.value.items.map(toFrontendJourneyStamp),
+          );
+        }
+      }
+      if (profileResult.status === "rejected" || stampsResult.status === "rejected") {
+        const syncError = profileResult.status === "rejected"
+          ? profileResult.reason
+          : stampsResult.status === "rejected"
+            ? stampsResult.reason
+            : undefined;
+        const syncMessage = syncError ? `\n${getApiErrorMessage(syncError)}` : "";
+        Alert.alert("회원가입 완료", `회원가입은 완료됐지만 일부 고객 정보를 바로 불러오지 못했습니다.${syncMessage}`);
+      }
+    } catch (error) {
+      Alert.alert("회원가입 실패", getApiErrorMessage(error));
     } finally {
+      setLoadingMessage("");
       setSubmitting(false);
     }
   };
@@ -881,10 +977,8 @@ function SignUp() {
               가입 후 MCM과의 여정을 Journey Passport에서 관리할 수 있습니다.
             </Text>
           </Card>
-          <Button
-            onPress={submit}
-          >
-            회원가입 완료
+          <Button onPress={submit} disabled={submitting}>
+            {submitting ? loadingMessage || "처리 중" : "회원가입 완료"}
           </Button>
         </View>
       </ScrollView>
@@ -996,7 +1090,7 @@ function CustomerHome() {
               </Pressable>
             </View>
             <View style={s.fakeQr}>
-              <QRCode value={`mcm-private-circle://customer/${customer.qrToken ?? customer.customerNo}`} size={190} color={c.paper} backgroundColor={c.ink} />
+              <QRCode value={`${CUSTOMER_QR_PREFIX}${customer.qrToken}`} size={190} color={c.paper} backgroundColor={c.ink} />
             </View>
             <Text style={s.body}>
               매장 방문 시 담당 CA에게 이 QR을 보여주세요.
@@ -1224,7 +1318,7 @@ function Passport() {
         <View style={s.modal}>
           <Card>
             <View style={s.row}><Text style={s.sectionTitle}>고객 식별 QR</Text><Pressable onPress={() => setQr(false)}><X color={c.ink} size={26} /></Pressable></View>
-            <View style={s.realQr}><QRCode value={`mcm-private-circle://customer/${customer.customerNo}`} size={216} color={c.ink} backgroundColor={c.paper} /></View>
+            <View style={s.realQr}><QRCode value={`${CUSTOMER_QR_PREFIX}${customer.qrToken}`} size={216} color={c.ink} backgroundColor={c.paper} /></View>
             <Text style={s.body}>매장 방문 시 담당 CA에게 보여주세요.</Text>
           </Card>
         </View>
@@ -1506,59 +1600,139 @@ function CaHome() {
   );
 }
 function Scanner() {
-  const { customer, customers } = useApp();
+  const { select, syncCustomerProfile, syncCustomerStamps } = useApp();
   const n = useNavigation<any>();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
-  const hasCustomers = customers.length > 0;
+  const [resolving, setResolving] = useState(false);
+
+  const handleScan = async (rawValue: string) => {
+    if (resolving) return;
+    const payload = parseCustomerQrPayload(rawValue);
+    if (!payload) {
+      Alert.alert("스캔 실패", "인식할 수 없는 고객 QR입니다.");
+      setScanned(false);
+      return;
+    }
+    setResolving(true);
+    try {
+      let profile: CustomerProfileResponse;
+      if (payload.kind === "qrToken") {
+        profile = await retryApiCall(() => customerApi.getByQr(payload.value));
+      } else {
+        const page = await retryApiCall(() => customerApi.search(payload.value, 0, 20));
+        const exactMatch = page.items.find((item) => item.customerNo.toUpperCase() === payload.value);
+        if (!exactMatch) throw new Error("스캔한 고객을 찾을 수 없습니다.");
+        profile = await retryApiCall(() => customerApi.getById(String(exactMatch.customerId)));
+      }
+
+      const customerId = String(profile.customerId);
+      syncCustomerProfile(profile);
+      select(customerId);
+      try {
+        const stamps = await retryApiCall(() => customerApi.stampsById(customerId));
+        syncCustomerStamps(customerId, stamps.items.map(toFrontendJourneyStamp));
+      } catch {
+        // 상세 화면 진입은 유지하고 스탬프는 상세 화면 effect에서 한 번 더 시도한다.
+      }
+      n.navigate("CustomerDetail", { id: customerId });
+    } catch (error) {
+      Alert.alert("스캔 실패", getApiErrorMessage(error));
+      setScanned(false);
+    } finally {
+      setResolving(false);
+    }
+  };
+
   if (!permission?.granted) {
     return <Screen title="QR 카메라" back><View style={s.cameraPermission}><ScanLine size={58} color={c.gold} /><Text style={s.pageTitle}>카메라 권한이 필요합니다</Text><Text style={s.body}>고객의 Journey Passport QR을 확인하기 위해 카메라 접근을 허용해 주세요.</Text><Button onPress={() => requestPermission()}>카메라 권한 허용</Button></View></Screen>;
   }
   return (
     <Screen title="QR 스캐너" back>
-      <View style={s.cameraFrame}><CameraView style={s.camera} facing="back" barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={scanned || !hasCustomers ? undefined : () => { setScanned(true); n.navigate("CustomerDetail", { id: customer.id }); }} /><View pointerEvents="none" style={s.cameraGuide} /></View>
-      <Text style={s.body}>{hasCustomers ? "고객 QR을 네모 안에 맞춰 주세요." : "먼저 데이터베이스에 등록된 고객을 불러온 뒤 스캔을 진행해 주세요."}</Text>
+      <View style={s.cameraFrame}><CameraView style={s.camera} facing="back" barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={scanned ? undefined : ({ data }: { data: string }) => { setScanned(true); void handleScan(data); }} /><View pointerEvents="none" style={s.cameraGuide} /></View>
+      <Text style={s.body}>{resolving ? "고객 정보를 확인하고 있습니다." : "고객 QR을 네모 안에 맞춰 주세요."}</Text>
     </Screen>
   );
 }
 function SearchScreen() {
-  const { customers, select } = useApp();
+  const { customers, select, syncCustomerSearchResults } = useApp();
   const n = useNavigation<any>();
   const [query, setQuery] = useState("");
-  const filtered = customers.filter(
-    (x) => x.name.includes(query) || x.customerNo.includes(query),
-  );
+  const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  const search = async () => {
+    const normalized = normalizeCustomerSearchKeyword(query);
+    if (!normalized.ok) {
+      Alert.alert("확인 필요", normalized.message);
+      return;
+    }
+
+    setLoading(true);
+    setHasSearched(true);
+    try {
+      const page = await customerApi.search(normalized.keyword, 0, 20);
+      syncCustomerSearchResults(page.items);
+    } catch (error) {
+      const emptySearchMessage = getCustomerSearchErrorMessage(getApiErrorCode(error));
+      if (emptySearchMessage) {
+        Alert.alert("확인 필요", emptySearchMessage);
+      } else {
+        Alert.alert("검색 실패", getApiErrorMessage(error));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Screen title="고객 검색" back>
       <TextInput
-        placeholder="이름 또는 고객 번호"
+        placeholder="이름, 휴대폰 번호, 고객 번호"
         value={query}
         onChangeText={setQuery}
+        onSubmitEditing={search}
+        returnKeyType="search"
         style={s.textInput}
       />
-      {filtered.length === 0 ? (
+      <Button onPress={search} icon={<Search color={c.paper} size={20} />}>
+        {loading ? "검색 중" : "고객 검색"}
+      </Button>
+      {!hasSearched ? (
+        <Card>
+          <Text style={s.cardTitle}>고객을 검색해 주세요</Text>
+          <Text style={s.body}>CA 고객 조회는 이름, 휴대폰 번호, 고객 번호로 서버에서 검색합니다.</Text>
+        </Card>
+      ) : loading ? (
+        <Card>
+          <Text style={s.cardTitle}>검색 중입니다</Text>
+          <Text style={s.body}>고객 정보를 불러오고 있습니다.</Text>
+        </Card>
+      ) : customers.length === 0 ? (
         <Card>
           <Text style={s.cardTitle}>검색 결과가 없습니다</Text>
           <Text style={s.body}>실제 고객 데이터만 표시되며, 더미 고객은 노출되지 않습니다.</Text>
         </Card>
-      ) : filtered.map((x) => (
-        <Pressable
-          key={x.id}
-          onPress={() => {
-            select(x.id);
-            n.navigate("CustomerDetail", { id: x.id });
-          }}
-        >
-          <Card>
-            <Text style={s.cardTitle}>
-              {x.name} · {x.customerNo}
-            </Text>
-            <Text style={s.body}>
-              {x.membershipTier === "VIP" ? "VIP 고객" : "일반 고객"}
-            </Text>
-          </Card>
-        </Pressable>
-      ))}
+      ) : (
+        customers.map((x) => (
+          <Pressable
+            key={x.id}
+            onPress={() => {
+              select(x.id);
+              n.navigate("CustomerDetail", { id: x.id });
+            }}
+          >
+            <Card>
+              <Text style={s.cardTitle}>
+                {x.name} · {x.customerNo}
+              </Text>
+              <Text style={s.body}>
+                {x.membershipTier === "VIP" ? "VIP 고객" : "일반 고객"}
+              </Text>
+            </Card>
+          </Pressable>
+        ))
+      )}
     </Screen>
   );
 }

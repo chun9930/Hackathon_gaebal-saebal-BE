@@ -79,6 +79,51 @@ class AuthServiceIntegrationTest {
 		assertThat(customerAccountRepository.findById(response.accountId())).isPresent();
 	}
 
+
+	@Test
+	void customerSignupHasNoLowArtificialMemberLimitAndCreatedCustomersCanLogin() {
+		for (int index = 0; index < 20; index++) {
+			String suffix = String.format("%02d", index);
+			var signup = authService.signup(new CustomerSignupRequest(
+				"bulkCustomer" + suffix,
+				"password123!",
+				"Customer " + suffix,
+				"010880000" + suffix
+			));
+
+			assertThat(signup.accessToken()).isNotBlank();
+			assertThat(signup.role()).isEqualTo(UserRole.CUSTOMER);
+
+			Customer customer = customerRepository.findById(signup.customerId()).orElseThrow();
+			assertThat(customer.getCustomerNo()).isEqualTo(String.format("C%08d", signup.customerId()));
+			assertThat(customer.getQrToken()).isNotBlank();
+
+			var login = authService.loginCustomer(new CustomerLoginRequest("bulkCustomer" + suffix, "password123!"));
+			assertThat(login.accessToken()).isNotBlank();
+			assertThat(login.customerId()).isEqualTo(signup.customerId());
+		}
+	}
+
+	@Test
+	void duplicateCustomerPhoneNumberIsRejected() {
+		authService.signup(new CustomerSignupRequest(
+			"customerPhone01",
+			"password123!",
+			"Kim",
+			"01033334444"
+		));
+
+		assertThatThrownBy(() -> authService.signup(new CustomerSignupRequest(
+			"customerPhone02",
+			"password123!",
+			"Lee",
+			"01033334444"
+		)))
+			.isInstanceOf(BusinessException.class)
+			.extracting("errorCode")
+			.isEqualTo(ErrorCode.DUPLICATE_PHONE_NUMBER);
+	}
+
 	@Test
 	void duplicateCustomerLoginIdIsRejected() {
 		authService.signup(new CustomerSignupRequest(

@@ -42,3 +42,11 @@ out/
 # Local work logs
 /daily-log/
 
+# Isolated implementation worktrees
+/.worktrees/
+
+# Local environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
