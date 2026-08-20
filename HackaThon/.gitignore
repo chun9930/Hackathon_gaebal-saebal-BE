@@ -5,3 +5,8 @@ dist
 android
 ios
 .claude/settings.local.json
+
+# Expo/local environment variables
+.env
+.env.*
+!.env.example

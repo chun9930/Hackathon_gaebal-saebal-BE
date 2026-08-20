@@ -31,6 +31,13 @@ export const getApiErrorMessage = (error: unknown): string => {
   return error instanceof Error ? error.message : '요청 처리 중 오류가 발생했습니다.';
 };
 
+export const getApiErrorCode = (error: unknown): string | undefined => {
+  if (axios.isAxiosError<ApiErrorEnvelope>(error)) {
+    return error.response?.data?.error?.code;
+  }
+  return undefined;
+};
+
 const currentLocalDateTime = (): string => {
   const now = new Date();
   const pad = (value: number) => String(value).padStart(2, '0');

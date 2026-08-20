@@ -66,7 +66,8 @@ import { MOCK_BRIEFS } from "../src/mock/briefs";
 import type { Customer, JourneyStamp, ProductRecommendation, UserRole } from "../src/types";
 import type { CustomerProfileResponse, CustomerSearchItem } from "../src/api/contracts";
 import { colors as c } from "./theme";
-import { authApi, caApi, customerApi, employeeApi, getApiErrorMessage, productApi, resolveApiUrl, setAccessToken } from "./api";
+import { authApi, caApi, customerApi, employeeApi, getApiErrorCode, getApiErrorMessage, productApi, resolveApiUrl, setAccessToken } from "./api";
+import { getCustomerSearchErrorMessage, normalizeCustomerSearchKeyword } from "./customer-search";
 
 type AuthScreen = "login" | "signup";
 type StoreName = keyof typeof STORE_STAMP_IMAGES;
@@ -95,6 +96,7 @@ type AppState = {
   updateAvatar: (uri: string) => void;
   syncCustomerProfile: (profile: CustomerProfileResponse) => void;
   syncCustomerStamps: (customerId: string, stamps: JourneyStamp[]) => void;
+  syncCustomerSearchResults: (items: CustomerSearchItem[]) => Customer[];
 };
 const Ctx = createContext<AppState | null>(null);
 const useApp = () => useContext(Ctx)!;
@@ -225,7 +227,7 @@ function Provider({ children }: { children: React.ReactNode }) {
   const setRole = (nextRole: UserRole) => {
     setRoleState(nextRole);
     if (nextRole === "ca") {
-      setCaCustomersLoading(true);
+      setCaCustomersLoading(false);
       setCustomers([]);
       select("");
     } else {
@@ -275,21 +277,6 @@ function Provider({ children }: { children: React.ReactNode }) {
       .catch(() => undefined);
   }, []);
   useEffect(() => {
-    if (role !== "ca" || !isLoggedIn) return;
-    setCaCustomersLoading(true);
-    customerApi.search("", 0, 50)
-      .then((page) => {
-        const items = page.items.map(toFrontendSearchCustomer);
-        setCustomers(items);
-        select(items[0]?.id ?? "");
-      })
-      .catch(() => {
-        setCustomers([]);
-        select("");
-      })
-      .finally(() => setCaCustomersLoading(false));
-  }, [role, isLoggedIn]);
-  useEffect(() => {
     if (role !== "customer") return;
     AsyncStorage.setItem(storageKey, JSON.stringify(customers));
   }, [customers, role]);
@@ -333,6 +320,12 @@ function Provider({ children }: { children: React.ReactNode }) {
             },
       ),
     );
+  };
+  const syncCustomerSearchResults = (items: CustomerSearchItem[]) => {
+    const nextCustomers = items.map(toFrontendSearchCustomer);
+    setCustomers(nextCustomers);
+    select(nextCustomers[0]?.id ?? "");
+    return nextCustomers;
   };
   const value = useMemo(
     () => ({
@@ -426,6 +419,7 @@ function Provider({ children }: { children: React.ReactNode }) {
         ),
       syncCustomerProfile,
       syncCustomerStamps,
+      syncCustomerSearchResults,
     }),
     [role, isLoggedIn, caCustomersLoading, authScreen, customers, selected, currentStore, currentCaName, products],
   );
@@ -1522,43 +1516,84 @@ function Scanner() {
   );
 }
 function SearchScreen() {
-  const { customers, select } = useApp();
+  const { customers, select, syncCustomerSearchResults } = useApp();
   const n = useNavigation<any>();
   const [query, setQuery] = useState("");
-  const filtered = customers.filter(
-    (x) => x.name.includes(query) || x.customerNo.includes(query),
-  );
+  const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  const search = async () => {
+    const normalized = normalizeCustomerSearchKeyword(query);
+    if (!normalized.ok) {
+      Alert.alert("확인 필요", normalized.message);
+      return;
+    }
+
+    setLoading(true);
+    setHasSearched(true);
+    try {
+      const page = await customerApi.search(normalized.keyword, 0, 20);
+      syncCustomerSearchResults(page.items);
+    } catch (error) {
+      const emptySearchMessage = getCustomerSearchErrorMessage(getApiErrorCode(error));
+      if (emptySearchMessage) {
+        Alert.alert("확인 필요", emptySearchMessage);
+      } else {
+        Alert.alert("검색 실패", getApiErrorMessage(error));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Screen title="고객 검색" back>
       <TextInput
-        placeholder="이름 또는 고객 번호"
+        placeholder="이름, 휴대폰 번호, 고객 번호"
         value={query}
         onChangeText={setQuery}
+        onSubmitEditing={search}
+        returnKeyType="search"
         style={s.textInput}
       />
-      {filtered.length === 0 ? (
+      <Button onPress={search} icon={<Search color={c.paper} size={20} />}>
+        {loading ? "검색 중" : "고객 검색"}
+      </Button>
+      {!hasSearched ? (
+        <Card>
+          <Text style={s.cardTitle}>고객을 검색해 주세요</Text>
+          <Text style={s.body}>CA 고객 조회는 이름, 휴대폰 번호, 고객 번호로 서버에서 검색합니다.</Text>
+        </Card>
+      ) : loading ? (
+        <Card>
+          <Text style={s.cardTitle}>검색 중입니다</Text>
+          <Text style={s.body}>고객 정보를 불러오고 있습니다.</Text>
+        </Card>
+      ) : customers.length === 0 ? (
         <Card>
           <Text style={s.cardTitle}>검색 결과가 없습니다</Text>
           <Text style={s.body}>실제 고객 데이터만 표시되며, 더미 고객은 노출되지 않습니다.</Text>
         </Card>
-      ) : filtered.map((x) => (
-        <Pressable
-          key={x.id}
-          onPress={() => {
-            select(x.id);
-            n.navigate("CustomerDetail", { id: x.id });
-          }}
-        >
-          <Card>
-            <Text style={s.cardTitle}>
-              {x.name} · {x.customerNo}
-            </Text>
-            <Text style={s.body}>
-              {x.membershipTier === "VIP" ? "VIP 고객" : "일반 고객"}
-            </Text>
-          </Card>
-        </Pressable>
-      ))}
+      ) : (
+        customers.map((x) => (
+          <Pressable
+            key={x.id}
+            onPress={() => {
+              select(x.id);
+              n.navigate("CustomerDetail", { id: x.id });
+            }}
+          >
+            <Card>
+              <Text style={s.cardTitle}>
+                {x.name} · {x.customerNo}
+              </Text>
+              <Text style={s.body}>
+                {x.membershipTier === "VIP" ? "VIP 고객" : "일반 고객"}
+              </Text>
+            </Card>
+          </Pressable>
+        ))
+      )}
     </Screen>
   );
 }

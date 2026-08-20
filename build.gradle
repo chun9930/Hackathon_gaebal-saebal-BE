@@ -46,10 +46,19 @@ tasks.named('test') {
 
 tasks.register('mysqlVerificationTest', Test) {
 	group = 'verification'
-	description = 'Runs integration tests with the mysql-verification profile.'
+	description = 'Runs integration tests with application.yaml and MySQL environment variables.'
 	useJUnitPlatform()
 	testClassesDirs = sourceSets.test.output.classesDirs
 	classpath = sourceSets.test.runtimeClasspath
-	systemProperty 'spring.profiles.active', 'mysql-verification'
+	def mysqlJdbcUrl = providers.environmentVariable('MYSQL_JDBC_URL')
+	def mysqlUsername = providers.environmentVariable('MYSQL_USERNAME')
+	def mysqlPassword = providers.environmentVariable('MYSQL_PASSWORD')
+	if (mysqlJdbcUrl.present) systemProperty 'DB_URL', mysqlJdbcUrl.get()
+	if (mysqlUsername.present) systemProperty 'DB_USERNAME', mysqlUsername.get()
+	if (mysqlPassword.present) systemProperty 'DB_PASSWORD', mysqlPassword.get()
+	systemProperty 'H2_CONSOLE_ENABLED', 'false'
+	systemProperty 'JPA_DDL_AUTO', 'create-drop'
+	systemProperty 'MOCK_SEED_ENABLED', 'false'
+	systemProperty 'EMPLOYEE_SEED_ENABLED', 'false'
 	shouldRunAfter tasks.named('test')
 }

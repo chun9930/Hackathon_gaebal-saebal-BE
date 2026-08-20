@@ -1,15 +1,16 @@
 spring:
   application:
     name: mcm-private-circle
+  config:
+    import: optional:file:./.env[.properties]
   datasource:
-    url: jdbc:h2:mem:mcm_private_circle;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    url: ${DB_URL:jdbc:h2:mem:mcm_private_circle;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${JPA_DDL_AUTO:update}
     properties:
       hibernate:
         format_sql: true
@@ -17,13 +18,11 @@ spring:
           time_zone: Asia/Seoul
   h2:
     console:
-      enabled: true
+      enabled: ${H2_CONSOLE_ENABLED:true}
 
 app:
   cors:
-    allowed-origin-patterns:
-      - http://localhost:*
-      - http://127.0.0.1:*
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
     allowed-methods:
       - GET
       - POST
@@ -38,30 +37,30 @@ app:
     allow-credentials: true
     max-age-seconds: 3600
   mock-data:
-    seed-enabled: true
+    seed-enabled: ${MOCK_SEED_ENABLED:true}
     stores-resource: mock-data/stores.json
     products-resource: mock-data/products.json
-    employee-seed-enabled: true
+    employee-seed-enabled: ${EMPLOYEE_SEED_ENABLED:true}
     employees:
       - login-id: CA-1092
-        password: "1092"
+        password: ${SEED_EMPLOYEE_CA1092_PASSWORD:1092}
         name: 이지원
         store-name: MCM HAUS
       - login-id: CA-1093
-        password: "1093"
+        password: ${SEED_EMPLOYEE_CA1093_PASSWORD:1093}
         name: 박지윤
         store-name: MCM 롯데백화점 잠실점
       - login-id: CA-1094
-        password: "1094"
+        password: ${SEED_EMPLOYEE_CA1094_PASSWORD:1094}
         name: 이현우
         store-name: MCM 롯데백화점 본점
       - login-id: CA-1095
-        password: "1095"
+        password: ${SEED_EMPLOYEE_CA1095_PASSWORD:1095}
         name: 정수빈
         store-name: MCM 신라면세점 서울점
   jwt:
     secret: ${JWT_SECRET:change-me-in-local}
-    access-token-validity: PT2H
+    access-token-validity: ${JWT_ACCESS_TOKEN_VALIDITY:PT2H}
   ai:
     gemini:
       api-key: ${GOOGLE_API_KEY:}

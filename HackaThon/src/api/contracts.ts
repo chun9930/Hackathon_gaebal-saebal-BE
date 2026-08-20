@@ -1,5 +1,6 @@
 /** Backend handoff API contract (frontend-api-spec.html). */
-export type ApiEnvelope<T> = { success: boolean; data: T; message?: string };
+export type ErrorDetail = { code: string; message: string };
+export type ApiEnvelope<T> = { success: boolean; data: T; message?: string; error?: ErrorDetail };
 export type PageEnvelope<T> = ApiEnvelope<{ items: T[]; page: number; size: number; totalElements: number; totalPages: number; hasNext: boolean }>;
 export type AuthTokens = {
   accessToken: string;
