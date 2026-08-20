@@ -1,7 +1,8 @@
 package com.mcm.privatecircle.global.security;
 
-import java.util.List;
+import com.mcm.privatecircle.global.config.CorsProperties;
 
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -17,20 +18,24 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableMethodSecurity
+@EnableConfigurationProperties(CorsProperties.class)
 public class SecurityConfig {
 
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
 	private final CustomAuthenticationEntryPoint authenticationEntryPoint;
 	private final CustomAccessDeniedHandler accessDeniedHandler;
+	private final CorsProperties corsProperties;
 
 	public SecurityConfig(
 		JwtAuthenticationFilter jwtAuthenticationFilter,
 		CustomAuthenticationEntryPoint authenticationEntryPoint,
-		CustomAccessDeniedHandler accessDeniedHandler
+		CustomAccessDeniedHandler accessDeniedHandler,
+		CorsProperties corsProperties
 	) {
 		this.jwtAuthenticationFilter = jwtAuthenticationFilter;
 		this.authenticationEntryPoint = authenticationEntryPoint;
 		this.accessDeniedHandler = accessDeniedHandler;
+		this.corsProperties = corsProperties;
 	}
 
 	@Bean
@@ -45,7 +50,7 @@ public class SecurityConfig {
 				.authenticationEntryPoint(authenticationEntryPoint)
 				.accessDeniedHandler(accessDeniedHandler))
 			.authorizeHttpRequests(authorize -> authorize
-				.requestMatchers("/api/v1/auth/**", "/images/product/**", "/error", "/h2-console/**").permitAll()
+				.requestMatchers("/api/v1/auth/**", "/images/product/**", "/images/stamps/**", "/error", "/h2-console/**").permitAll()
 				.anyRequest().authenticated())
 			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 			.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()));
@@ -55,9 +60,12 @@ public class SecurityConfig {
 	@Bean
 	public UrlBasedCorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration configuration = new CorsConfiguration();
-		configuration.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
-		configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
-		configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+		configuration.setAllowedOriginPatterns(corsProperties.allowedOriginPatterns());
+		configuration.setAllowedMethods(corsProperties.allowedMethods());
+		configuration.setAllowedHeaders(corsProperties.allowedHeaders());
+		configuration.setExposedHeaders(corsProperties.exposedHeaders());
+		configuration.setAllowCredentials(corsProperties.allowCredentials());
+		configuration.setMaxAge(corsProperties.maxAgeSeconds());
 
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 		source.registerCorsConfiguration("/**", configuration);

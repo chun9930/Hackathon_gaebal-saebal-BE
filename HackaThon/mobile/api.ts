@@ -9,6 +9,14 @@ const AI_REQUEST_TIMEOUT_MS = 45_000;
 export const api = axios.create({ baseURL: API_BASE_URL, timeout: 10_000, headers: { 'Content-Type': 'application/json' } });
 let accessToken: string | null = null;
 export const setAccessToken = (token: string | null) => { accessToken = token; };
+export const resolveApiUrl = (path?: string | null): string | undefined => {
+  if (!path) return undefined;
+  try {
+    return new URL(path, `${API_BASE_URL.replace(/\/+$/, '')}/`).toString();
+  } catch {
+    return undefined;
+  }
+};
 api.interceptors.request.use((config) => { if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`; return config; });
 const unwrap = <T>(response: { data: ApiEnvelope<T> }): T => { if (!response.data.success) throw new Error(response.data.message ?? '?遺욧퍕 筌ｌ꼶?????쎈솭??됰뮸??덈뼄.'); return response.data.data; };
 
@@ -43,12 +51,9 @@ const resolveProductImage = (product: ProductSummaryResponse): string | number =
     ? `/images/product/${product.productCode}.jpg`
     : product.imageUrl;
 
-  if (imagePath) {
-    try {
-      return new URL(imagePath, `${API_BASE_URL.replace(/\/+$/, '')}/`).toString();
-    } catch {
-      // Fall through to the bundled image when the server returns an invalid URL.
-    }
+  const resolvedImageUrl = resolveApiUrl(imagePath);
+  if (resolvedImageUrl) {
+    return resolvedImageUrl;
   }
 
   return getLocalProductImage(product.productCode) ?? '';

@@ -38,7 +38,7 @@ class VisitStampControllerTest {
     void getStampListsReturn200AndPageResponse() {
         PageResponse<VisitStampResponse> page = new PageResponse<>(
             List.of(new VisitStampResponse(
-                1L, 10L, 5L, "Alice", 3L, "Main Store", 2L, "Advisor Kim", "VISIT",
+                1L, 10L, 5L, "Alice", 3L, "Main Store", "/images/stamps/journey-stamp-seoul-lotte-main.png", 2L, "Advisor Kim", "VISIT",
                 LocalDateTime.of(2026, 8, 17, 13, 0), LocalDateTime.of(2026, 8, 17, 12, 0)
             )),
             0, 20, 1, 1, false

@@ -90,14 +90,24 @@ public class CustomerService {
         int size
     ) {
         PaginationValidator.validate(page, size);
-        if (keyword == null || keyword.isBlank()) {
+        if (keyword == null) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        String normalizedKeyword = keyword.trim();
+        PageRequest pageRequest = PageRequest.of(page, size, SEARCH_SORT);
+
+        if (normalizedKeyword.isBlank()) {
+            return PageResponse.from(
+                customerRepository.findAll(pageRequest)
+                    .map(this::toSearchResponse)
+            );
         }
 
         return PageResponse.from(
             customerRepository.searchByKeyword(
-                keyword.trim(),
-                PageRequest.of(page, size, SEARCH_SORT)
+                normalizedKeyword,
+                pageRequest
             ).map(this::toSearchResponse)
         );
     }

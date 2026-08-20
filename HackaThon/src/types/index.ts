@@ -6,6 +6,7 @@ export interface JourneyStamp {
   type: 'visit' | 'purchase' | 'care' | 'invite';
   issuedAt: string;
   issuedByCA: string;
+  imageUrl?: string;
 }
 
 export interface PurchaseRecord {

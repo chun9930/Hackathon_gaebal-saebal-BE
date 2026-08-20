@@ -84,6 +84,7 @@ export type StampResponse = {
   customerName: string;
   storeId: number;
   storeName: string;
+  stampImageUrl?: string | null;
   issuedByCaId: number;
   issuedByCaName: string;
   stampType: string;

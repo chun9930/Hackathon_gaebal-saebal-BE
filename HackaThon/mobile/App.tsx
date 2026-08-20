@@ -66,7 +66,7 @@ import { MOCK_BRIEFS } from "../src/mock/briefs";
 import type { Customer, JourneyStamp, ProductRecommendation, UserRole } from "../src/types";
 import type { CustomerProfileResponse, CustomerSearchItem } from "../src/api/contracts";
 import { colors as c } from "./theme";
-import { authApi, caApi, customerApi, employeeApi, getApiErrorMessage, productApi, setAccessToken } from "./api";
+import { authApi, caApi, customerApi, employeeApi, getApiErrorMessage, productApi, resolveApiUrl, setAccessToken } from "./api";
 
 type AuthScreen = "login" | "signup";
 type StoreName = keyof typeof STORE_STAMP_IMAGES;
@@ -75,6 +75,7 @@ type AppState = {
   role: UserRole;
   setRole: (v: UserRole) => void;
   isLoggedIn: boolean;
+  caCustomersLoading: boolean;
   logout: () => void;
   authScreen: AuthScreen;
   setAuthScreen: (v: AuthScreen) => void;
@@ -132,7 +133,7 @@ function toFrontendSearchCustomer(item: CustomerSearchItem): Customer {
     id: String(item.customerId),
     name: item.name,
     customerNo: item.customerNo,
-    qrToken: `demo-qr-${item.customerId}`,
+    qrToken: "",
     phoneLast4: item.phoneNumber?.slice(-4) ?? "0000",
     membershipTier: item.membershipGrade === "VIP" ? "VIP" : GENERAL_MEMBERSHIP_TIER,
     points: 0,
@@ -156,6 +157,7 @@ function toFrontendJourneyStamp(stamp: import("../src/api/contracts").StampRespo
     type: stamp.stampType === "purchase" || stamp.stampType === "care" || stamp.stampType === "invite" ? stamp.stampType : "visit",
     issuedAt: stamp.issuedAt,
     issuedByCA: stamp.issuedByCaName,
+    imageUrl: resolveApiUrl(stamp.stampImageUrl),
   };
 }
 const BRAND_LOGO = require("../logo.png");
@@ -218,9 +220,17 @@ function useMeasuredWidth() {
 function Provider({ children }: { children: React.ReactNode }) {
   const [role, setRoleState] = useState<UserRole>("customer");
   const [isLoggedIn, setLoggedIn] = useState(false);
+  const [caCustomersLoading, setCaCustomersLoading] = useState(false);
   const [authScreen, setAuthScreen] = useState<AuthScreen>("login");
   const setRole = (nextRole: UserRole) => {
     setRoleState(nextRole);
+    if (nextRole === "ca") {
+      setCaCustomersLoading(true);
+      setCustomers([]);
+      select("");
+    } else {
+      setCaCustomersLoading(false);
+    }
     setLoggedIn(true);
   };
   const logout = () => {
@@ -266,25 +276,30 @@ function Provider({ children }: { children: React.ReactNode }) {
   }, []);
   useEffect(() => {
     if (role !== "ca" || !isLoggedIn) return;
-    customerApi.search("MCM", 0, 50)
+    setCaCustomersLoading(true);
+    customerApi.search("", 0, 50)
       .then((page) => {
         const items = page.items.map(toFrontendSearchCustomer);
-        if (!items.length) return;
         setCustomers(items);
-        select(items[0].id);
+        select(items[0]?.id ?? "");
       })
-      .catch(() => undefined);
+      .catch(() => {
+        setCustomers([]);
+        select("");
+      })
+      .finally(() => setCaCustomersLoading(false));
   }, [role, isLoggedIn]);
   useEffect(() => {
+    if (role !== "customer") return;
     AsyncStorage.setItem(storageKey, JSON.stringify(customers));
-  }, [customers]);
+  }, [customers, role]);
   useEffect(() => {
     if (!isLoggedIn) return;
     productApi.list()
       .then((items) => setProducts(items.filter((product) => product.recommendable)))
       .catch(() => undefined);
   }, [isLoggedIn]);
-  const customer = customers.find((x) => x.id === selected) ?? customers[0];
+  const customer = customers.find((x) => x.id === selected) ?? customers[0] ?? INITIAL_CUSTOMERS[0];
   const syncCustomerProfile = (profile: CustomerProfileResponse) => {
     const nextCustomer = toFrontendCustomer(profile);
     setCustomers((all) => {
@@ -324,6 +339,7 @@ function Provider({ children }: { children: React.ReactNode }) {
       role,
       setRole,
       isLoggedIn,
+      caCustomersLoading,
       logout,
       authScreen,
       setAuthScreen,
@@ -411,7 +427,7 @@ function Provider({ children }: { children: React.ReactNode }) {
       syncCustomerProfile,
       syncCustomerStamps,
     }),
-    [role, isLoggedIn, authScreen, customers, selected, currentStore, currentCaName, products],
+    [role, isLoggedIn, caCustomersLoading, authScreen, customers, selected, currentStore, currentCaName, products],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
@@ -943,6 +959,7 @@ function CustomerHome() {
         </View>
       </Card>
       <SectionTitle
+        kicker="PASSPORT STAMP"
         title="최근 방문 여정 도장"
         action={() => n.navigate("Journey")}
       />
@@ -955,7 +972,7 @@ function CustomerHome() {
         renderItem={({ item }: { item: JourneyStamp }) => <StampCard item={item} compact size={stampCardSize} />}
         contentContainerStyle={{ gap: stampGap }}
       />
-      <SectionTitle title="고객 맞춤 추천 제품" action={() => n.navigate("Recommendations")} />
+      <SectionTitle kicker="PRIVATE RECOMMEND" title="고객 맞춤 추천 제품" action={() => n.navigate("Recommendations")} />
       <ProductList products={products.slice(0, 3)} />
       <View style={s.homeActionList}>
         <Pressable onPress={() => n.navigate("Passport")} style={s.homeActionDark}>
@@ -1007,16 +1024,18 @@ function Stat({
   );
 }
 function SectionTitle({
+  kicker = "PRIVATE CIRCLE",
   title,
   action,
 }: {
+  kicker?: string;
   title: string;
   action?: () => void;
 }) {
   return (
     <View style={s.sectionRow}>
       <View>
-        <Text style={s.kicker}>PRIVATE CIRCLE</Text>
+        <Text style={s.kicker}>{kicker}</Text>
         <Text style={s.sectionTitle}>{title}</Text>
       </View>
       {action && (
@@ -1028,13 +1047,21 @@ function SectionTitle({
     </View>
   );
 }
-function StoreStampImage({ storeName, size, lightPlate = false }: { storeName: string; size: number; lightPlate?: boolean }) {
+function StoreStampImage({ storeName, size, imageUrl, lightPlate = false }: { storeName: string; size: number; imageUrl?: string; lightPlate?: boolean }) {
   const asset = getStampAsset(storeName);
+  const [useFallbackAsset, setUseFallbackAsset] = useState(false);
   // 발급 카드에서는 밝은 원판과 도장을 정확히 같은 크기로 겹친다.
   const outerSize = size;
   return (
     <View style={[s.stampArtwork, { width: outerSize, height: outerSize, borderRadius: outerSize / 2 }, lightPlate && s.issueStampPlate]}>
-      {!!asset && (
+      {imageUrl && !useFallbackAsset ? (
+        <Image
+          source={{ uri: imageUrl }}
+          style={{ width: size, height: size }}
+          resizeMode="contain"
+          onError={() => setUseFallbackAsset(true)}
+        />
+      ) : !!asset && (
         <Image
           source={asset}
           style={{ width: size, height: size }}
@@ -1051,7 +1078,7 @@ function StampCard({ item, compact = false, size }: { item: JourneyStamp; compac
   const imageSize = compact ? Math.round(cardWidth * (94 / 132)) : 94;
   return (
     <View style={[s.stampPreview, compact && s.stampPreviewCompact, compact && { width: cardWidth }]}>
-      <StoreStampImage storeName={item.storeName} size={imageSize} />
+      <StoreStampImage storeName={item.storeName} size={imageSize} imageUrl={item.imageUrl} />
       <Text
         numberOfLines={compact ? 1 : 2}
         ellipsizeMode="tail"
@@ -1236,7 +1263,7 @@ function Journey() {
             return (
               <View key={x.id} style={s.journeyStop}>
                 {index < customer.stamps.length - 1 && <View style={s.journeyRail} />}
-                <StoreStampImage storeName={x.storeName} size={94} />
+                <StoreStampImage storeName={x.storeName} size={94} imageUrl={x.imageUrl} />
                 <View style={s.journeyCopy}>
                   <Text style={s.journeyMonth}>{x.issuedAt.slice(0, 7).replace("-", "년 ")}월</Text>
                   <Text style={s.cardTitle}>{x.storeName}</Text>
@@ -1387,13 +1414,23 @@ function Saved() {
 }
 
 function CaHome() {
-  const { customers, select, currentStore } = useApp();
+  const { customers, select, currentStore, caCustomersLoading } = useApp();
   const n = useNavigation<any>();
   const { isTablet } = useResponsive();
   const clientList = (
     <>
       <SectionTitle title="최근 고객" />
-      {customers.map((x) => (
+      {caCustomersLoading ? (
+        <Card>
+          <Text style={s.cardTitle}>고객 목록을 불러오는 중입니다</Text>
+          <Text style={s.body}>데이터베이스에 저장된 최근 고객 정보를 확인하고 있습니다.</Text>
+        </Card>
+      ) : customers.length === 0 ? (
+        <Card>
+          <Text style={s.cardTitle}>최근 고객이 없습니다</Text>
+          <Text style={s.body}>아직 등록되었거나 조회된 고객 데이터가 없습니다.</Text>
+        </Card>
+      ) : customers.map((x) => (
         <Pressable
           accessibilityRole="button"
           key={x.id}
@@ -1428,7 +1465,7 @@ function CaHome() {
         </Pressable>
         <View style={s.caSearchBox}>
           <View style={s.caSearchTitle}><Search color={c.gold} size={30} /><Text style={s.sectionTitle}>고객 검색</Text></View>
-          <TextInput placeholder="이름 · 연락처 · 이메일" placeholderTextColor={c.muted} style={s.textInput} />
+          <Text style={s.body}>고객 목록과 상세 기록을 확인하는 검색 화면으로 이동합니다.</Text>
           <Button secondary onPress={() => n.navigate("Search")} icon={<Search size={22} color={c.ink} />}>고객 조회</Button>
         </View>
       </View>
@@ -1469,17 +1506,18 @@ function CaHome() {
   );
 }
 function Scanner() {
-  const { customer } = useApp();
+  const { customer, customers } = useApp();
   const n = useNavigation<any>();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const hasCustomers = customers.length > 0;
   if (!permission?.granted) {
     return <Screen title="QR 카메라" back><View style={s.cameraPermission}><ScanLine size={58} color={c.gold} /><Text style={s.pageTitle}>카메라 권한이 필요합니다</Text><Text style={s.body}>고객의 Journey Passport QR을 확인하기 위해 카메라 접근을 허용해 주세요.</Text><Button onPress={() => requestPermission()}>카메라 권한 허용</Button></View></Screen>;
   }
   return (
     <Screen title="QR 스캐너" back>
-      <View style={s.cameraFrame}><CameraView style={s.camera} facing="back" barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={scanned ? undefined : () => { setScanned(true); n.navigate("CustomerDetail", { id: customer.id }); }} /><View pointerEvents="none" style={s.cameraGuide} /></View>
-      <Text style={s.body}>고객 QR을 네모 안에 맞춰 주세요.</Text>
+      <View style={s.cameraFrame}><CameraView style={s.camera} facing="back" barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={scanned || !hasCustomers ? undefined : () => { setScanned(true); n.navigate("CustomerDetail", { id: customer.id }); }} /><View pointerEvents="none" style={s.cameraGuide} /></View>
+      <Text style={s.body}>{hasCustomers ? "고객 QR을 네모 안에 맞춰 주세요." : "먼저 데이터베이스에 등록된 고객을 불러온 뒤 스캔을 진행해 주세요."}</Text>
     </Screen>
   );
 }
@@ -1498,7 +1536,12 @@ function SearchScreen() {
         onChangeText={setQuery}
         style={s.textInput}
       />
-      {filtered.map((x) => (
+      {filtered.length === 0 ? (
+        <Card>
+          <Text style={s.cardTitle}>검색 결과가 없습니다</Text>
+          <Text style={s.body}>실제 고객 데이터만 표시되며, 더미 고객은 노출되지 않습니다.</Text>
+        </Card>
+      ) : filtered.map((x) => (
         <Pressable
           key={x.id}
           onPress={() => {
@@ -1520,9 +1563,22 @@ function SearchScreen() {
   );
 }
 function CustomerDetail() {
-  const { customer } = useApp();
+  const { customer, syncCustomerProfile, syncCustomerStamps } = useApp();
   const n = useNavigation<any>();
   const { isTablet } = useResponsive();
+  useEffect(() => {
+    if (!isBackendCustomerId(customer.id)) return;
+    customerApi.getById(customer.id)
+      .then((profile) => {
+        syncCustomerProfile(profile);
+        return customerApi.stampsById(customer.id)
+          .then((stamps) => syncCustomerStamps(
+            customer.id,
+            stamps.items.map(toFrontendJourneyStamp),
+          ));
+      })
+      .catch(() => undefined);
+  }, [customer.id]);
   const profile = (
     <>
       <Card dark>
@@ -1959,7 +2015,7 @@ function CaFlow() {
   );
 }
 function Root() {
-  const { role, isLoggedIn, authScreen } = useApp();
+  const { role, isLoggedIn, authScreen, caCustomersLoading } = useApp();
   return (
     <NavigationContainer>
       {!isLoggedIn ? (
@@ -1970,6 +2026,13 @@ function Root() {
         )
       ) : role === "customer" ? (
         <CustomerFlow />
+      ) : caCustomersLoading ? (
+        <Screen preset="wide" caHeader>
+          <Card>
+            <Text style={s.cardTitle}>고객 데이터를 준비하고 있습니다</Text>
+            <Text style={s.body}>CA 계정에서는 데이터베이스에 저장된 고객만 불러옵니다.</Text>
+          </Card>
+        </Screen>
       ) : (
         <CaFlow />
       )}
