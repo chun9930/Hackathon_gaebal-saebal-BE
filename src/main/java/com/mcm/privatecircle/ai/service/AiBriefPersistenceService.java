@@ -18,12 +18,16 @@ import com.mcm.privatecircle.global.security.AuthenticatedUser;
 import com.mcm.privatecircle.visit.entity.Visit;
 import com.mcm.privatecircle.visit.repository.VisitRepository;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AiBriefPersistenceService {
+
+    private static final Logger log = LoggerFactory.getLogger(AiBriefPersistenceService.class);
 
     private final AiJourneyBriefRepository repository;
     private final CustomerRepository customerRepository;
@@ -56,7 +60,7 @@ public class AiBriefPersistenceService {
         Customer customer = findCustomer(customerId);
         Visit visit = findVisit(visitId);
         ClientAdvisor ca = findCa(authenticatedUser.getCaId());
-        return repository.save(new AiJourneyBrief(
+        AiJourneyBrief saved = repository.save(new AiJourneyBrief(
             null,
             customer,
             visit,
@@ -70,6 +74,9 @@ public class AiBriefPersistenceService {
             BriefStatus.GENERATED,
             LocalDateTime.now(clock)
         ));
+        log.info("[AI BRIEF] DB row saved: briefId={}, customerId={}, visitId={}, status={}",
+            saved.getId(), customerId, visitId, saved.getStatus());
+        return saved;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -83,7 +90,7 @@ public class AiBriefPersistenceService {
         Customer customer = findCustomer(customerId);
         Visit visit = findVisit(visitId);
         ClientAdvisor ca = findCa(authenticatedUser.getCaId());
-        return repository.save(new AiJourneyBrief(
+        AiJourneyBrief saved = repository.save(new AiJourneyBrief(
             null,
             customer,
             visit,
@@ -97,6 +104,9 @@ public class AiBriefPersistenceService {
             BriefStatus.FAILED,
             LocalDateTime.now(clock)
         ));
+        log.info("[AI BRIEF] Failed DB row saved: briefId={}, customerId={}, visitId={}, status={}, errorCode={}",
+            saved.getId(), customerId, visitId, saved.getStatus(), errorCode.getCode());
+        return saved;
     }
 
     private Customer findCustomer(Long customerId) {

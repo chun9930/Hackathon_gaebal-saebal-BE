@@ -1,44 +1,59 @@
 package com.mcm.privatecircle.ai.client;
 
-import java.io.InterruptedIOException;
-import java.net.SocketTimeoutException;
-import java.net.http.HttpTimeoutException;
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.genai.Client;
+import com.google.genai.errors.ApiException;
+import com.google.genai.errors.GenAiIOException;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.HttpOptions;
 import com.google.genai.types.Schema;
+import com.google.genai.types.Type;
 import com.mcm.privatecircle.ai.config.GeminiProperties;
 import com.mcm.privatecircle.ai.dto.AiBriefSource;
 import com.mcm.privatecircle.ai.dto.GeminiBriefResult;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 public class GoogleGeminiBriefClient implements GeminiBriefClient {
+
+    private static final Logger log = LoggerFactory.getLogger(GoogleGeminiBriefClient.class);
 
     private static final TypeReference<Map<String, String>> STRING_MAP = new TypeReference<>() {
     };
 
     private final GeminiProperties properties;
     private final ObjectMapper objectMapper;
-    private final RawJsonRequester rawJsonRequester;
+    private final Client client;
 
-    @Autowired
     public GoogleGeminiBriefClient(GeminiProperties properties) {
-        this(properties, createSdkRequester(properties));
-    }
-
-    public GoogleGeminiBriefClient(GeminiProperties properties, RawJsonRequester rawJsonRequester) {
         this.properties = properties;
         this.objectMapper = new ObjectMapper().findAndRegisterModules();
-        this.rawJsonRequester = rawJsonRequester;
+        String environmentApiKey = System.getenv("GOOGLE_API_KEY");
+        String configuredApiKey = properties.apiKey();
+        log.info("[AI BRIEF] GOOGLE_API_KEY loaded: {}, length: {}",
+            hasText(environmentApiKey), lengthOf(environmentApiKey));
+        log.info("[AI BRIEF] Configured Gemini API key loaded: {}, length: {}",
+            hasText(configuredApiKey), lengthOf(configuredApiKey));
+        log.info("[AI BRIEF] Conflicting Google auth environment present: enterprise={}, vertex={}, credentials={}, project={}, location={}, customBaseUrl={}",
+            isEnabled("GOOGLE_GENAI_USE_ENTERPRISE"), isEnabled("GOOGLE_GENAI_USE_VERTEXAI"),
+            hasEnvironmentValue("GOOGLE_APPLICATION_CREDENTIALS"), hasEnvironmentValue("GOOGLE_CLOUD_PROJECT"),
+            hasEnvironmentValue("GOOGLE_CLOUD_LOCATION"), hasEnvironmentValue("GOOGLE_GEMINI_BASE_URL"));
+        this.client = hasText(configuredApiKey)
+            ? Client.builder()
+                .apiKey(configuredApiKey.trim())
+                .enterprise(false)
+                .vertexAI(false)
+                .httpOptions(HttpOptions.builder().timeout(Math.toIntExact(properties.timeout().toMillis())).build())
+                .build()
+            : null;
     }
 
     @Override
@@ -48,25 +63,52 @@ public class GoogleGeminiBriefClient implements GeminiBriefClient {
     }
 
     protected String requestRawJson(String prompt) {
-        try {
-            String rawJson = rawJsonRequester.request(prompt);
-            if (rawJson == null || rawJson.isBlank()) {
-                throw new AiClientException("Gemini returned blank response");
-            }
-            return rawJson;
-        } catch (AiClientException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            if (isTimeout(exception)) {
-                throw new AiClientTimeoutException("Gemini request timed out", exception);
-            }
-            throw new AiClientException("Gemini external call failed", exception);
-        } catch (Exception exception) {
-            if (isTimeout(exception)) {
-                throw new AiClientTimeoutException("Gemini request timed out", exception);
-            }
-            throw new AiClientException("Gemini external call failed", exception);
+        if (client == null) {
+            throw new AiClientConfigurationException("GOOGLE_API_KEY is missing");
         }
+        GenerateContentConfig config = GenerateContentConfig.builder()
+            .responseMimeType("application/json")
+            .responseSchema(buildResponseSchema())
+            .build();
+
+        String responseText;
+        try {
+            log.info("[AI BRIEF] Gemini request started: model={}, timeoutMs={}, promptLength={}",
+                properties.model(), properties.timeout().toMillis(), prompt.length());
+            responseText = client.models.generateContent(properties.model(), prompt, config).text();
+        } catch (ApiException exception) {
+            log.warn("[AI BRIEF] Gemini API rejected request: statusCode={}, status={}",
+                exception.code(), exception.status());
+            if (exception.code() == 401) {
+                throw new AiClientAuthenticationException("Gemini authentication failed", exception);
+            }
+            throw new AiClientException("Gemini API request failed", exception);
+        } catch (GenAiIOException exception) {
+            log.warn("[AI BRIEF] Gemini request failed: model={}, message={}",
+                properties.model(), exception.getMessage());
+            throw new AiClientTimeoutException("Gemini request timed out", exception);
+        }
+        if (responseText == null || responseText.isBlank()) {
+            throw new AiClientException("Gemini returned an empty response");
+        }
+        log.info("[AI BRIEF] Gemini response received: responseLength={}", responseText.length());
+        return responseText;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private int lengthOf(String value) {
+        return value == null ? 0 : value.length();
+    }
+
+    private boolean hasEnvironmentValue(String name) {
+        return hasText(System.getenv(name));
+    }
+
+    private boolean isEnabled(String name) {
+        return Boolean.parseBoolean(System.getenv(name));
     }
 
     private GeminiBriefResult parseAndValidate(String rawJson) {
@@ -103,12 +145,24 @@ public class GoogleGeminiBriefClient implements GeminiBriefClient {
     private String buildPrompt(AiBriefSource source) {
         try {
             String payload = objectMapper.writeValueAsString(source);
+            String currentVisitRecord = source.currentVisitRecord() == null
+                ? "currentVisitRecord: none"
+                : "currentVisitRecord: visitedAt=" + source.currentVisitRecord().visitedAt()
+                    + ", visitPurpose=" + safeText(source.currentVisitRecord().visitPurpose())
+                    + ", content=" + safeText(source.currentVisitRecord().content())
+                    + ", styleChangeNote=" + safeText(source.currentVisitRecord().styleChangeNote())
+                    + ", cautionNote=" + safeText(source.currentVisitRecord().cautionNote());
             return "You are generating a concise CA journey brief. "
                 + "Use only the provided JSON data. "
                 + "Do not infer facts that are not present. "
+                + "The latest consultation record is the target visit record. "
+                + "If currentVisitRecord.cautionNote is present, cautionSummary must explicitly reflect that latest caution. "
+                + "Do not replace it with a generic omission or 'no caution' message. "
+                + "Use currentVisitRecord together with past visitRecords. "
                 + "Return valid JSON with exactly these keys: "
                 + "summary, visitPurposeSummary, interestSummary, cautionSummary, suggestedDirection. "
                 + "All values must be non-empty Korean strings.\n"
+                + currentVisitRecord + "\n"
                 + "Model=" + properties.model() + "\n"
                 + payload;
         } catch (JsonProcessingException exception) {
@@ -116,49 +170,22 @@ public class GoogleGeminiBriefClient implements GeminiBriefClient {
         }
     }
 
-    private static RawJsonRequester createSdkRequester(GeminiProperties properties) {
-        return prompt -> {
-            HttpOptions httpOptions = HttpOptions.builder()
-                .timeout(Math.toIntExact(properties.timeout().toMillis()))
-                .build();
-
-            GenerateContentConfig config = GenerateContentConfig.builder()
-                .responseMimeType("application/json")
-                .responseSchema(buildResponseSchema())
-                .httpOptions(httpOptions)
-                .build();
-
-            try (Client client = Client.builder()
-                .apiKey(properties.apiKey())
-                .httpOptions(httpOptions)
-                .build()) {
-                return client.models.generateContent(properties.model(), prompt, config).text();
-            }
-        };
+    private String safeText(String value) {
+        return value == null ? "" : value;
     }
 
-    private static Schema buildResponseSchema() {
-        Schema stringSchema = Schema.builder()
-            .type("STRING")
-            .build();
+    private Schema buildResponseSchema() {
+        Map<String, Schema> properties = new LinkedHashMap<>();
+        properties.put("summary", textSchema("summary"));
+        properties.put("visitPurposeSummary", textSchema("visitPurposeSummary"));
+        properties.put("interestSummary", textSchema("interestSummary"));
+        properties.put("cautionSummary", textSchema("cautionSummary"));
+        properties.put("suggestedDirection", textSchema("suggestedDirection"));
 
         return Schema.builder()
-            .type("OBJECT")
-            .properties(Map.of(
-                "summary", stringSchema,
-                "visitPurposeSummary", stringSchema,
-                "interestSummary", stringSchema,
-                "cautionSummary", stringSchema,
-                "suggestedDirection", stringSchema
-            ))
-            .required(List.of(
-                "summary",
-                "visitPurposeSummary",
-                "interestSummary",
-                "cautionSummary",
-                "suggestedDirection"
-            ))
-            .propertyOrdering(
+            .type(Type.Known.OBJECT)
+            .properties(properties)
+            .required(
                 "summary",
                 "visitPurposeSummary",
                 "interestSummary",
@@ -168,26 +195,10 @@ public class GoogleGeminiBriefClient implements GeminiBriefClient {
             .build();
     }
 
-    private boolean isTimeout(Throwable throwable) {
-        Throwable current = throwable;
-        while (current != null) {
-            if (current instanceof AiClientTimeoutException
-                || current instanceof HttpTimeoutException
-                || current instanceof SocketTimeoutException
-                || current instanceof InterruptedIOException) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
-    }
-
-    @FunctionalInterface
-    public interface RawJsonRequester {
-        String request(String prompt) throws Exception;
+    private Schema textSchema(String description) {
+        return Schema.builder()
+            .type(Type.Known.STRING)
+            .description(description)
+            .build();
     }
 }
-
-
-
-

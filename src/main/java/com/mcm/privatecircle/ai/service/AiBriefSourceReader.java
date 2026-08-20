@@ -11,6 +11,7 @@ import com.mcm.privatecircle.interest.entity.InterestSourceType;
 import com.mcm.privatecircle.interest.repository.CustomerInterestProductRepository;
 import com.mcm.privatecircle.purchase.repository.PurchaseHistoryRepository;
 import com.mcm.privatecircle.visit.entity.Visit;
+import com.mcm.privatecircle.visit.entity.VisitRecord;
 import com.mcm.privatecircle.visit.repository.VisitRecordRepository;
 import com.mcm.privatecircle.visit.repository.VisitRepository;
 
@@ -66,6 +67,7 @@ public class AiBriefSourceReader {
         }
 
         LocalDateTime targetVisitedAt = targetVisit.getVisitedAt();
+        VisitRecord currentVisitRecord = visitRecordRepository.findByVisitId(visitId).orElse(null);
         var visitRecords = visitRecordRepository.findByCustomerIdAndVisitStoreIdAndVisitVisitedAtLessThan(
             customerId,
             authenticatedUser.getStoreId(),
@@ -92,6 +94,15 @@ public class AiBriefSourceReader {
                 targetVisit.getCustomer().getMembershipGrade(),
                 targetVisit.getCustomer().getStylePreferences()
             ),
+            currentVisitRecord == null
+                ? null
+                : new AiBriefSource.VisitRecordSource(
+                    currentVisitRecord.getVisit().getVisitedAt(),
+                    currentVisitRecord.getVisitPurpose(),
+                    currentVisitRecord.getContent(),
+                    currentVisitRecord.getStyleChangeNote(),
+                    currentVisitRecord.getCautionNote()
+                ),
             visitRecords.stream()
                 .map(record -> new AiBriefSource.VisitRecordSource(
                     record.getVisit().getVisitedAt(),

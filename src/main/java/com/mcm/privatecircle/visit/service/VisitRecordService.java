@@ -108,6 +108,18 @@ public class VisitRecordService {
         return VisitRecordResponse.from(visitRecord);
     }
 
+    @Transactional
+    public void deleteVisitRecord(AuthenticatedUser authenticatedUser, Long visitRecordId) {
+        requireCa(authenticatedUser);
+        VisitRecord visitRecord = visitRecordRepository
+            .findByIdAndVisitStoreId(visitRecordId, authenticatedUser.getStoreId())
+            .orElseThrow(() -> new BusinessException(ErrorCode.VISIT_RECORD_NOT_FOUND));
+        if (!visitRecord.isAuthoredBy(authenticatedUser.getCaId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN_CA);
+        }
+        visitRecordRepository.delete(visitRecord);
+    }
+
     private Visit findVisitInStore(Long visitId, Long storeId) {
         return visitRepository.findByIdAndStoreId(visitId, storeId)
             .orElseThrow(() -> new BusinessException(ErrorCode.VISIT_NOT_FOUND));

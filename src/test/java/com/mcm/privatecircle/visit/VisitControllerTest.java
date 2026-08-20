@@ -24,12 +24,12 @@ class VisitControllerTest {
     private final AuthenticatedUser caUser = AuthenticatedUser.ca(1L, 2L, 3L);
 
     @Test
-    void 방문_생성은_201을_반환한다() {
+    void createVisitReturns201() {
         VisitCreateRequest request = new VisitCreateRequest(
             10L,
             LocalDateTime.of(2026, 8, 17, 14, 0)
         );
-        VisitResponse visit = new VisitResponse(20L, 10L, 3L, request.visitedAt());
+        VisitResponse visit = new VisitResponse(20L, 10L, "Alice", 3L, "Main Store", request.visitedAt());
         when(visitService.createVisit(caUser, request)).thenReturn(visit);
 
         var response = controller.createVisit(caUser, request);
@@ -39,9 +39,9 @@ class VisitControllerTest {
     }
 
     @Test
-    void 방문_목록은_공통_PageResponse로_반환한다() {
+    void getCustomerVisitsReturnsPageResponse() {
         PageResponse<VisitResponse> page = new PageResponse<>(
-            List.of(new VisitResponse(20L, 10L, 3L, LocalDateTime.of(2026, 8, 17, 14, 0))),
+            List.of(new VisitResponse(20L, 10L, "Alice", 3L, "Main Store", LocalDateTime.of(2026, 8, 17, 14, 0))),
             0,
             20,
             1,

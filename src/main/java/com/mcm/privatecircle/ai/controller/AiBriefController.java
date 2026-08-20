@@ -9,6 +9,8 @@ import com.mcm.privatecircle.global.security.AuthenticatedUser;
 
 import jakarta.validation.Valid;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,6 +27,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/customers/{customerId}/ai-briefs")
 public class AiBriefController {
 
+    private static final Logger log = LoggerFactory.getLogger(AiBriefController.class);
+
     private final AiBriefService service;
 
     public AiBriefController(AiBriefService service) {
@@ -38,6 +42,9 @@ public class AiBriefController {
         @PathVariable Long customerId,
         @Valid @RequestBody AiBriefCreateRequest request
     ) {
+        log.info("[AI BRIEF] POST received: customerId={}, visitId={}, caId={}, storeId={}",
+            customerId, request.visitId(), authenticatedUser == null ? null : authenticatedUser.getCaId(),
+            authenticatedUser == null ? null : authenticatedUser.getStoreId());
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.success(service.create(authenticatedUser, customerId, request)));
     }
@@ -49,6 +56,9 @@ public class AiBriefController {
         @PathVariable Long customerId,
         @RequestParam Long visitId
     ) {
+        log.info("[AI BRIEF] GET latest received: customerId={}, visitId={}, caId={}, storeId={}",
+            customerId, visitId, authenticatedUser == null ? null : authenticatedUser.getCaId(),
+            authenticatedUser == null ? null : authenticatedUser.getStoreId());
         return ResponseEntity.ok(ApiResponse.success(
             service.getLatest(authenticatedUser, customerId, visitId)
         ));

@@ -27,6 +27,8 @@ public enum ErrorCode {
     PRODUCT_IN_USE(HttpStatus.CONFLICT, "PRODUCT_IN_USE", "참조 중인 상품입니다."),
     INVALID_INTEREST_SOURCE(HttpStatus.BAD_REQUEST, "INVALID_INTEREST_SOURCE", "관심 제품 출처 조합이 올바르지 않습니다."),
     VISIT_CUSTOMER_MISMATCH(HttpStatus.BAD_REQUEST, "VISIT_CUSTOMER_MISMATCH", "방문과 고객이 일치하지 않습니다."),
+    AI_BRIEF_API_KEY_MISSING(HttpStatus.SERVICE_UNAVAILABLE, "AI_BRIEF_API_KEY_MISSING", "AI API 설정이 누락되었습니다."),
+    AI_BRIEF_AUTH_FAILED(HttpStatus.BAD_GATEWAY, "AI_BRIEF_AUTH_FAILED", "외부 AI API 인증에 실패했습니다."),
     AI_API_TIMEOUT(HttpStatus.BAD_GATEWAY, "AI_API_TIMEOUT", "외부 AI API 시간이 초과되었습니다."),
     AI_RESPONSE_PARSE_FAILED(HttpStatus.BAD_GATEWAY, "AI_RESPONSE_PARSE_FAILED", "AI 응답 파싱에 실패했습니다."),
     AI_API_FAILED(HttpStatus.BAD_GATEWAY, "AI_API_FAILED", "외부 AI API 호출에 실패했습니다."),

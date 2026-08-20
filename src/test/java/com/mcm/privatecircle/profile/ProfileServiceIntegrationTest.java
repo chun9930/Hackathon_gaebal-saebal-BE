@@ -17,7 +17,6 @@ import com.mcm.privatecircle.employee.service.EmployeeService;
 import com.mcm.privatecircle.global.exception.BusinessException;
 import com.mcm.privatecircle.global.exception.ErrorCode;
 import com.mcm.privatecircle.global.security.AuthenticatedUser;
-import com.mcm.privatecircle.global.security.UserRole;
 import com.mcm.privatecircle.store.entity.Store;
 import com.mcm.privatecircle.store.repository.StoreRepository;
 
@@ -67,6 +66,8 @@ class ProfileServiceIntegrationTest {
 
 		var profile = customerService.getMyProfile(customerUser);
 		assertThat(profile.customerId()).isEqualTo(signup.customerId());
+		assertThat(profile.customerNo()).isEqualTo(String.format("C%08d", signup.customerId()));
+		assertThat(profile.qrToken()).isNotBlank();
 		assertThat(profile.name()).isEqualTo("Kim");
 		assertThat(profile.visitCount()).isZero();
 		assertThat(profile.stampCount()).isZero();
@@ -78,18 +79,20 @@ class ProfileServiceIntegrationTest {
 				"Kim Updated",
 				"01020202020",
 				"https://img.example.com/a.png",
-				"GOLD",
 				"minimal"
 			)
 		);
 
 		assertThat(updated.name()).isEqualTo("Kim Updated");
 		assertThat(updated.phoneNumber()).isEqualTo("01020202020");
-		assertThat(updated.membershipGrade()).isEqualTo("GOLD");
+		assertThat(updated.membershipGrade()).isNull();
 		assertThat(updated.profileImageUrl()).isEqualTo("https://img.example.com/a.png");
+		assertThat(updated.customerNo()).isEqualTo(String.format("C%08d", signup.customerId()));
+		assertThat(updated.qrToken()).isNotBlank();
 
 		Customer saved = customerRepository.findById(signup.customerId()).orElseThrow();
 		assertThat(saved.getPhoneNumber()).isEqualTo("01020202020");
+		assertThat(saved.getMembershipGrade()).isNull();
 	}
 
 	@Test
@@ -105,6 +108,8 @@ class ProfileServiceIntegrationTest {
 		var profile = customerService.getCustomerByQrToken(customer.getQrToken());
 
 		assertThat(profile.customerId()).isEqualTo(signup.customerId());
+		assertThat(profile.customerNo()).isEqualTo(String.format("C%08d", signup.customerId()));
+		assertThat(profile.qrToken()).isEqualTo(customer.getQrToken());
 		assertThat(profile.name()).isEqualTo("Park");
 	}
 
@@ -130,7 +135,6 @@ class ProfileServiceIntegrationTest {
 			new CustomerProfileUpdateRequest(
 				"First",
 				"01050505050",
-				null,
 				null,
 				null
 			)

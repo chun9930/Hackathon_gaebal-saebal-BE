@@ -1,6 +1,8 @@
 package com.mcm.privatecircle.ai.service;
 
 import com.mcm.privatecircle.ai.client.AiClientException;
+import com.mcm.privatecircle.ai.client.AiClientAuthenticationException;
+import com.mcm.privatecircle.ai.client.AiClientConfigurationException;
 import com.mcm.privatecircle.ai.client.AiClientTimeoutException;
 import com.mcm.privatecircle.ai.client.AiResponseParseException;
 import com.mcm.privatecircle.ai.client.GeminiBriefClient;
@@ -17,6 +19,8 @@ import com.mcm.privatecircle.global.util.PaginationValidator;
 import com.mcm.privatecircle.visit.entity.Visit;
 import com.mcm.privatecircle.visit.repository.VisitRepository;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -24,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AiBriefService {
+
+    private static final Logger log = LoggerFactory.getLogger(AiBriefService.class);
 
     public static final Sort HISTORY_SORT = Sort.by(
         Sort.Order.desc("generatedAt"),
@@ -100,19 +106,41 @@ public class AiBriefService {
         if (request == null || request.visitId() == null) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
+        log.info("[AI BRIEF] Source loading started: customerId={}, visitId={}, caId={}, storeId={}",
+            customerId, request.visitId(), authenticatedUser.getCaId(), authenticatedUser.getStoreId());
         var source = sourceReader.read(authenticatedUser, customerId, request.visitId());
+        log.info("[AI BRIEF] Source loaded: customerId={}, visitId={}, sourceVisitCount={}, interests={}, purchases={}",
+            customerId, request.visitId(), source.sourceVisitCount(), source.interestProducts().size(), source.purchases().size());
+        log.info("[AI BRIEF] Current visit record present: customerId={}, visitId={}, present={}",
+            customerId, request.visitId(), source.currentVisitRecord() != null);
         try {
+            log.info("[AI BRIEF] Gemini generation started: customerId={}, visitId={}", customerId, request.visitId());
             var result = geminiBriefClient.generate(source);
-            return AiBriefResponse.from(
+            var response = AiBriefResponse.from(
                 persistenceService.saveGenerated(authenticatedUser, customerId, request.visitId(), source, result)
             );
+            log.info("[AI BRIEF] Generation completed: briefId={}, customerId={}, visitId={}, status={}",
+                response.briefId(), response.customerId(), response.visitId(), response.status());
+            return response;
+        } catch (AiClientConfigurationException exception) {
+            log.warn("[AI BRIEF] Gemini API key missing: customerId={}, visitId={}", customerId, request.visitId());
+            persistenceService.saveFailed(authenticatedUser, customerId, request.visitId(), source, ErrorCode.AI_BRIEF_API_KEY_MISSING);
+            throw new BusinessException(ErrorCode.AI_BRIEF_API_KEY_MISSING, exception);
+        } catch (AiClientAuthenticationException exception) {
+            log.warn("[AI BRIEF] Gemini authentication failed: customerId={}, visitId={}", customerId, request.visitId());
+            persistenceService.saveFailed(authenticatedUser, customerId, request.visitId(), source, ErrorCode.AI_BRIEF_AUTH_FAILED);
+            throw new BusinessException(ErrorCode.AI_BRIEF_AUTH_FAILED, exception);
         } catch (AiClientTimeoutException exception) {
+            log.warn("[AI BRIEF] Gemini timeout: customerId={}, visitId={}", customerId, request.visitId());
             persistenceService.saveFailed(authenticatedUser, customerId, request.visitId(), source, ErrorCode.AI_API_TIMEOUT);
             throw new BusinessException(ErrorCode.AI_API_TIMEOUT, exception);
         } catch (AiResponseParseException exception) {
+            log.warn("[AI BRIEF] Gemini response parse failed: customerId={}, visitId={}", customerId, request.visitId());
             persistenceService.saveFailed(authenticatedUser, customerId, request.visitId(), source, ErrorCode.AI_RESPONSE_PARSE_FAILED);
             throw new BusinessException(ErrorCode.AI_RESPONSE_PARSE_FAILED, exception);
         } catch (AiClientException exception) {
+            log.warn("[AI BRIEF] Gemini API failed: customerId={}, visitId={}, message={}",
+                customerId, request.visitId(), exception.getMessage());
             persistenceService.saveFailed(authenticatedUser, customerId, request.visitId(), source, ErrorCode.AI_API_FAILED);
             throw new BusinessException(ErrorCode.AI_API_FAILED, exception);
         }

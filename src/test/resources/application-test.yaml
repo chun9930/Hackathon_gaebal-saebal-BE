@@ -16,4 +16,6 @@ spring:
       enabled: false
 
 app:
+  mock-data:
+    seed-enabled: false
   jwt:

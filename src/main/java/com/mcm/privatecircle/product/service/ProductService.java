@@ -108,6 +108,7 @@ public class ProductService {
 			product.getProductCode(),
 			product.getName(),
 			product.getCategory(),
+			product.getImageUrl(),
 			product.getPrice(),
 			product.isRecommendable()
 		);

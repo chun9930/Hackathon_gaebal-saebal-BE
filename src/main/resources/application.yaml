@@ -1,0 +1,69 @@
+spring:
+  application:
+    name: mcm-private-circle
+  datasource:
+    url: jdbc:h2:mem:mcm_private_circle;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
+  h2:
+    console:
+      enabled: true
+
+app:
+  cors:
+    allowed-origin-patterns:
+      - http://localhost:*
+      - http://127.0.0.1:*
+    allowed-methods:
+      - GET
+      - POST
+      - PATCH
+      - PUT
+      - DELETE
+      - OPTIONS
+    allowed-headers:
+      - "*"
+    exposed-headers:
+      - Authorization
+    allow-credentials: true
+    max-age-seconds: 3600
+  mock-data:
+    seed-enabled: true
+    stores-resource: mock-data/stores.json
+    products-resource: mock-data/products.json
+    employee-seed-enabled: true
+    employees:
+      - login-id: CA-1092
+        password: "1092"
+        name: 이지원
+        store-name: MCM HAUS
+      - login-id: CA-1093
+        password: "1093"
+        name: 박지윤
+        store-name: MCM 롯데백화점 잠실점
+      - login-id: CA-1094
+        password: "1094"
+        name: 이현우
+        store-name: MCM 롯데백화점 본점
+      - login-id: CA-1095
+        password: "1095"
+        name: 정수빈
+        store-name: MCM 신라면세점 서울점
+  jwt:
+    secret: ${JWT_SECRET:change-me-in-local}
+    access-token-validity: PT2H
+  ai:
+    gemini:
+      api-key: ${GOOGLE_API_KEY:}
+      model: ${GEMINI_MODEL:gemini-3.6-flash}
+      timeout: ${GEMINI_TIMEOUT:PT30S}

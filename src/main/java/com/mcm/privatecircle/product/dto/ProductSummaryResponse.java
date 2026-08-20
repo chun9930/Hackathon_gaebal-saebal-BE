@@ -7,6 +7,7 @@ public record ProductSummaryResponse(
 	String productCode,
 	String name,
 	String category,
+	String imageUrl,
 	BigDecimal price,
 	boolean recommendable
 ) {

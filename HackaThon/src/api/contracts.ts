@@ -10,6 +10,15 @@ export type AuthTokens = {
   storeId?: number;
   role: string;
 };
+export type EmployeeProfileResponse = {
+  caId: number;
+  storeId: number;
+  storeName: string;
+  name: string;
+  accountId: number;
+  loginId: string;
+  createdAt: string;
+};
 export type CustomerProfileResponse = {
   customerId: number;
   customerNo: string;
@@ -25,6 +34,15 @@ export type CustomerProfileResponse = {
   joinedAt?: string;
 };
 export type CustomerSignupRequest = { loginId: string; password: string; name: string; phoneNumber: string };
+export type ProductSummaryResponse = {
+  productId: number;
+  productCode: string;
+  name: string;
+  category: string;
+  imageUrl?: string | null;
+  price: number;
+  recommendable: boolean;
+};
 export type CustomerSearchItem = {
   customerId: number;
   customerNo: string;
@@ -66,6 +84,7 @@ export type StampResponse = {
   customerName: string;
   storeId: number;
   storeName: string;
+  stampImageUrl?: string | null;
   issuedByCaId: number;
   issuedByCaName: string;
   stampType: string;

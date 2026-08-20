@@ -7,6 +7,7 @@ import com.mcm.privatecircle.interest.entity.InterestSourceType;
 
 public record AiBriefSource(
     CustomerProfile customer,
+    VisitRecordSource currentVisitRecord,
     List<VisitRecordSource> visitRecords,
     List<InterestProductSource> interestProducts,
     List<PurchaseSource> purchases,

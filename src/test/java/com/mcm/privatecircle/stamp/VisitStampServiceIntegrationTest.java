@@ -82,7 +82,7 @@ class VisitStampServiceIntegrationTest {
         );
         customer = saveCustomer("stamp-customer", "C-S-1", "010-5100-0001", "qr-s-1");
         otherCustomer = saveCustomer("stamp-other", "C-S-2", "010-5100-0002", "qr-s-2");
-        store = storeRepository.save(new Store("서울점", "서울"));
+        store = storeRepository.save(new Store("MCM HAUS", "서울"));
         otherStore = storeRepository.save(new Store("부산점", "부산"));
         ca = saveAdvisor("stamp-ca", store, "서울 CA");
         otherStoreCa = saveAdvisor("stamp-other-ca", otherStore, "부산 CA");
@@ -101,6 +101,7 @@ class VisitStampServiceIntegrationTest {
 
         assertThat(response.customerId()).isEqualTo(customer.getId());
         assertThat(response.issuedByCaId()).isEqualTo(ca.getId());
+        assertThat(response.stampImageUrl()).isEqualTo("/images/stamps/journey-stamp-seoul-haus-flagship.png");
         assertThat(response.issuedAt()).isEqualTo(LocalDateTime.of(2026, 8, 17, 13, 0));
         assertThatThrownBy(() -> service.issueStamp(caUser, visit.getId(), request))
             .isInstanceOf(BusinessException.class)

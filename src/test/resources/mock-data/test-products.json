@@ -1,0 +1,18 @@
+[
+  {
+    "productCode": "mock-bag-001",
+    "name": "Mock Bag Alpha",
+    "category": "bag",
+    "price": 1000000,
+    "imageUrl": "/mock-bag-alpha.jpg",
+    "recommendable": true
+  },
+  {
+    "productCode": "mock-acc-001",
+    "name": "Mock Accessory Beta",
+    "category": "accessory",
+    "price": 250000,
+    "imageUrl": "/mock-acc-beta.jpg",
+    "recommendable": false
+  }
+]
