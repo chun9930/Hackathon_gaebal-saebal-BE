@@ -17,7 +17,9 @@ public record CorsProperties(
     public CorsProperties {
         allowedOriginPatterns = copyOrDefault(allowedOriginPatterns, List.of(
             "http://localhost:*",
-            "http://127.0.0.1:*"
+            "http://127.0.0.1:*",
+            "https://mcmprivatecircle.store",
+            "https://www.mcmprivatecircle.store"
         ));
         allowedMethods = copyOrDefault(allowedMethods, List.of(
             "GET",
