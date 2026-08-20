@@ -3,7 +3,7 @@ import type { AIBrief, ConsultationNote, ProductRecommendation } from '../src/ty
 import { getLocalProductImage } from '../src/mock/products';
 import type { AIBriefResponse, ApiEnvelope, AuthTokens, ConsultationRecordRequest, ConsultationRecordResponse, CustomerProfileResponse, CustomerSearchItem, CustomerSignupRequest, EmployeeProfileResponse, PageEnvelope, ProductSummaryResponse, StampResponse, VisitResponse } from '../src/api/contracts';
 
-const DEFAULT_API_URL = 'http://localhost:8080';
+const DEFAULT_API_URL = 'https://mcmprivatecircle.store';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL?.trim() || DEFAULT_API_URL;
 const AI_REQUEST_TIMEOUT_MS = 45_000;
 export const api = axios.create({ baseURL: API_BASE_URL, timeout: 10_000, headers: { 'Content-Type': 'application/json' } });
