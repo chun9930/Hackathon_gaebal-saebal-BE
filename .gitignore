@@ -42,3 +42,6 @@ out/
 # Local work logs
 /daily-log/
 
+
+# Isolated implementation worktrees
+/.worktrees/
